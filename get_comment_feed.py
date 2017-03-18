@@ -25,7 +25,7 @@ def store_post(post):
     puts(colored.green(post['from']['name']) + \
             colored.blue(' @ {}'.format(post['created_time'])) + \
             colored.yellow('(+{}): '.format(likes)) + \
-            colored.clean(message))
+            colored.black(message))
     with indent(4, quote=' >'):
         for com in comments:
             puts(colored.magenta(com['from']['name']) + colored.yellow(' (+{}): '.format(com['like_count'])) + com['message'])
