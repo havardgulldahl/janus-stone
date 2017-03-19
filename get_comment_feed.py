@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
+import os
 from datetime import datetime
 import requests
 from clint.textui import colored, puts, indent
 from pprint import pprint
 import argparse
 import facebook
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
 
-JANUS_APP_ID='264804657310512'
-JANUS_APP_TOKEN='441046be6a35caaa163e5e69309a587c'
-JANUS_APP_TOKEN='EAACEdEose0cBAHNjPZArRvKoPZBcTNnoCSwkswOON6ZB8C2YZBjLsHRZB6vDdnU1x1X1HVR56eCcVeTZCw9EhEQ2IixAv1JeUSiu0QshElHAQzEZBxNQ6KXAGSXOtahDIYlpSC9BTCsDGkRR3eIuE5nsJzBFuVrYQMV0bPKKOgzGVB4O9xbhdFn65qaMzLw9zcZD'
-
+import fusionclient
 
 def datestring(string):
     try:
@@ -22,28 +22,42 @@ def datestring(string):
         raise argparse.ArgumentTypeError(msg)
 
 argp = argparse.ArgumentParser()
+argp.add_argument('pagename')
+argp.add_argument('fusiontable')
 argp.add_argument('--since', type=datestring, help='Date in YYYY-MM-DD format')
 argp.add_argument('--until', type=datestring, help='Date in YYYY-MM-DD format')
 
 args = argp.parse_args()
 
-graph = facebook.GraphAPI(access_token=JANUS_APP_TOKEN, version='2.8')
+fusion = fusionclient.Fusion()
+graph = facebook.GraphAPI(access_token=os.environ.get('FB_APP_TOKEN'), version='2.8')
 
-params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message},likes{name}'}
+params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message},likes{name},attachments{media,description}'
+            }
 
 if args.since:
     params['since'] = args.since
 if args.until:
     params['until'] = args.until
 
-feed = graph.request('/dnb/feed', params)
+feed = graph.request('/{}/feed'.format(args.pagename), params)
 
 def store_post(post):
-    #pprint(post)
     #print("{created_time} by {from}: {message}".format(**post))
     likes = len(post['likes']) if 'likes' in post else 0
     comments = post['comments']['data'] if 'comments' in post else []
     message = post['message'] if 'message' in post else ''
+    media = post['attachments']['data']['media'] if 'attachments' in post else ''
+    sql = """INSERT INTO {} ('ID', 'Dato', 'Avsender', '# Likes', 'Melding', 'Media', '# kommentarer', 'kommentarer')
+             VALUES ('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')""".format(post['id'],
+                                                                               post['created_time'],
+                                                                               post['from']['name'],
+                                                                               likes,
+                                                                               message,
+                                                                               media,
+                                                                               len(comments),
+                                                                               comments)
+    fusion.sql(sql)
     puts(colored.green(post['from']['name']) + \
             colored.blue(' @ {}'.format(post['created_time'])) + \
             colored.yellow('(+{}): '.format(likes)) + \
