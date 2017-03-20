@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
+import html
 import os
 from datetime import datetime
 import requests
+import json
 from clint.textui import colored, puts, indent
 from pprint import pprint
 import argparse
@@ -42,21 +44,40 @@ if args.until:
 
 feed = graph.request('/{}/feed'.format(args.pagename), params)
 
+def htmldumps(comments):
+    s = ['<ul>', ]
+    for com in comments:
+        s.append('<li><b>{}</b> (+{}): <i>{}</i></li>'.format(html.escape(com['from']['name']), com['like_count'], html.escape(com['message'])))
+    s.append('</ul>')
+    return ''.join(s)
+
 def store_post(post):
     #print("{created_time} by {from}: {message}".format(**post))
     likes = len(post['likes']) if 'likes' in post else 0
     comments = post['comments']['data'] if 'comments' in post else []
     message = post['message'] if 'message' in post else ''
-    media = post['attachments']['data']['media'] if 'attachments' in post else ''
-    sql = """INSERT INTO {} ('ID', 'Dato', 'Avsender', '# Likes', 'Melding', 'Media', '# kommentarer', 'kommentarer')
-             VALUES ('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')""".format(post['id'],
-                                                                               post['created_time'],
-                                                                               post['from']['name'],
-                                                                               likes,
-                                                                               message,
-                                                                               media,
-                                                                               len(comments),
-                                                                               comments)
+    link = post['link'] if 'link' in post else ''
+    try:
+        if post['type'] == 'video':
+            media = post['source']
+        elif post['type'] == 'photo':
+            media = post['picture']
+        else:
+            media = ''
+    except KeyError:
+        media = ''
+    sql = """INSERT INTO {} ('ID', 'Dato', 'Avsender', '# Likes', 'Melding', 'Link', 'Media', '# kommentarer', 'kommentarer')
+             VALUES ('{}', '{}', '{}', {}, '{}', '{}', '{}', {}, '{}')""".format(args.fusiontable,
+                                                                                 post['id'],
+                                                                                 post['created_time'],
+                                                                                 html.escape(post['from']['name']),
+                                                                                 likes,
+                                                                                 html.escape(message),
+                                                                                 link, 
+                                                                                 media,
+                                                                                 len(comments),
+                                                                                 htmldumps(comments))
+    print(repr(sql))
     fusion.sql(sql)
     puts(colored.green(post['from']['name']) + \
             colored.blue(' @ {}'.format(post['created_time'])) + \
@@ -75,7 +96,8 @@ while True:
     try:
         # Perform some action on each post in the collection we receive from
         # Facebook.
-        [store_post(post=post) for post in feed['data']]
+        for post in feed['data']:
+            store_post(post)
         # Attempt to make a request to the next page of data, if it exists.
         cont = input('=================== continue? press y =================== ')
         if cont.strip().lower() != 'y': break
