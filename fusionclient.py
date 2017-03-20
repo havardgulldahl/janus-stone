@@ -16,6 +16,7 @@
 
 import httplib2
 import sys,os
+import logging
 from pprint import pprint
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
@@ -97,6 +98,18 @@ class Fusion:
   def sql(self, sqlstring):
         req = self.service.query().sql(sql=sqlstring)
         self.run(req)
+
+  def insertrow(self, tableid, kwargs):
+        def swrap(a):
+            return ''' '{}' '''.format(a)
+        colnames = [ swrap(k) for k in kwargs.keys() ]
+        vals = [ swrap(kwargs[k]) for k in kwargs.keys() ]
+        sql = "INSERT INTO {} ({}) VALUES ({})".format(tableid, ', '.join(colnames), ', '.join(vals))
+        logging.debug("generated INSERT sql: %r", sql)
+        self.sql(sql)
+
+            
+
 
 if __name__ == '__main__':
     f = Fusion()
