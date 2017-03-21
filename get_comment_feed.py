@@ -15,7 +15,7 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 import fusionclient
 
@@ -57,12 +57,12 @@ def comments_html(comments):
     'Turn a json list of comments into an html string'
     s = ['<ul>', ]
     for com in comments:
-        s.append('<li><b>{}</b> (+{}): <i>{}</i></li>'.format(html.escape(com['from']['name']), com['like_count'], html.escape(com['message'])))
+        s.append('<li><b>{}</b> (+{}): {}</li>'.format(html.escape(com['from']['name']), com['like_count'], html.escape(com['message'])))
     s.append('</ul>')
     return ''.join(s)
 
 def store_post(post):
-    pprint(post)
+    #pprint(post)
     likes = len(post['likes']) if 'likes' in post else 0
     shares = post['shares']['count'] if 'shares' in post else 0
     comments = post['comments']['data'] if 'comments' in post else []
@@ -90,20 +90,9 @@ def store_post(post):
         'kommentarer': comments_html(comments),
         'Delinger': shares,
     }
-    #print(repr(sql))
-    fusion.insertrow(args.fusiontable, kwargs)
     puts(colored.green(post['from']['name']) + \
-            colored.blue(' @ {}'.format(post['created_time'])) + \
-            colored.yellow('(+{}): '.format(likes)) + \
-            colored.black(message))
-    puts(colored.magenta('href: {} '.format(link)))
-    puts(colored.magenta('media: {} '.format(media)))
-    with indent(8, quote=' >'):
-        for com in comments:
-            puts(colored.magenta(com['from']['name']) + colored.yellow(' (+{}): '.format(com['like_count'])) + com['message'])
-    puts('----------\n')
-        
-    
+         colored.blue(' @ {}'.format(post['created_time'])))
+    return fusion.insertrow(args.fusiontable, kwargs)
 
 # Wrap this block in a while loop so we can keep paginating requests until
 # finished.
@@ -112,7 +101,11 @@ while True:
         # Perform some action on each post in the collection we receive from
         # Facebook.
         for post in feed['data']:
-            store_post(post)
+            http_code, status = store_post(post)
+            if http_code > 201:
+                puts(colored.red(repr(status)))
+            else:
+                puts(colored.green(repr(status)))
         # Attempt to make a request to the next page of data, if it exists.
         cont = input('=================== continue? press y =================== ')
         if cont.strip().lower() != 'y': break
