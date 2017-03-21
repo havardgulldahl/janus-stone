@@ -15,8 +15,10 @@
 # limitations under the License.
 
 import httplib2
+import urllib.parse
 import sys,os
 import logging
+import json
 from pprint import pprint
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
@@ -75,16 +77,15 @@ class Fusion:
     #   name of the API ('calendar')
     #   version of the API you are using ('v3')
     #   authorized httplib2.Http() object that can be used for API calls
-    self.service = build('fusiontables', 'v1', http=http)
+    self.service = build('fusiontables', 'v2', http=http)
+    self.http = self.service._http
 
   def run(self, request):
         try:
-
-            #request = service.table().list()
             response = request.execute()
             # Accessing the response like a dict object with an 'items' key
             # returns a list of item objects (events).
-            pprint(response)
+            logging.debug(response)
             # Get the next request object by passing the previous request object to
             # the list_next method.
             #request = service.events().list_next(request, response)
@@ -96,8 +97,21 @@ class Fusion:
                 'the application to re-authorize')
 
   def sql(self, sqlstring):
-        req = self.service.query().sql(sql=sqlstring)
-        self.run(req)
+        #req = self.service.query().sql(sql=sqlstring)
+        #self.run(req)
+        url = '{}query'.format(self.service._baseUrl)
+        logging.debug('sending request to %r', url)
+        headers = {'Content-type': 'application/x-www-form-urlencoded'}
+        response, content = self.http.request(url, 
+                                              'POST', 
+                                              headers=headers, 
+                                              body=urllib.parse.urlencode({'sql':sqlstring}))
+        logging.debug('.sql got %r response: %r', response, content)
+        try:
+            cont = json.loads(content.decode())
+        except:
+            cont = content
+        return (int(response['status'], 10), cont)
 
   def insertrow(self, tableid, kwargs):
         def swrap(a):
@@ -106,10 +120,7 @@ class Fusion:
         vals = [ swrap(kwargs[k]) for k in kwargs.keys() ]
         sql = "INSERT INTO {} ({}) VALUES ({})".format(tableid, ', '.join(colnames), ', '.join(vals))
         logging.debug("generated INSERT sql: %r", sql)
-        self.sql(sql)
-
-            
-
+        return self.sql(sql) #tuple
 
 if __name__ == '__main__':
     f = Fusion()
