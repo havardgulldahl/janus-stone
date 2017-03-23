@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
+import collections
 import io
 import time
 import html
@@ -17,7 +18,7 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 import logging
-logging.basicConfig(level=logging.INFO)
+#logging.basicConfig(level=logging.INFO)
 
 import fusionclient
 
@@ -30,8 +31,14 @@ def datestring(string):
             value = datetime.strptime(string, '%Y-%m-%d %H:%M:%S')
             return value.timestamp()
         except ValueError:
-            msg = "%r is not a YYYY-MM-DD date" % string
+            msg = "%r is not a YYYY-MM-DD [HH:MM:SS] timestamp" % string
             raise argparse.ArgumentTypeError(msg)
+
+def lvl(string):
+    try:
+        return getattr(logging, string.upper())
+    except ValueError:
+        raise argparse.ArgumentTypeError('%r is not a loglevel')
 
 argp = argparse.ArgumentParser()
 argp.add_argument('pagename')
@@ -39,8 +46,12 @@ argp.add_argument('fusiontable')
 argp.add_argument('--since', type=datestring, help='Date in YYYY-MM-DD [HH:MM:SS] format')
 argp.add_argument('--until', type=datestring, help='Date in YYYY-MM-DD [HH:MM:SS] format')
 argp.add_argument('--store', action="store_true", default=False, help='Keep a copy of the FB post in .data/ as JSON file')
+argp.add_argument('--loglevel', type=lvl, default=logging.INFO, help='Set log level')
 
 args = argp.parse_args()
+
+print('loglevel: %r' % args.loglevel)
+logging.basicConfig(level=args.loglevel)
 
 fusion = fusionclient.Fusion()
 
@@ -71,8 +82,11 @@ def comments_html(comments):
 
 def store_post(post, keep_disk_copy=None):
     #pprint(post)
+    postpath = './data/{}'.format(args.pagename)
     if keep_disk_copy:
-        with io.open('./.data/{}.json'.format(post['id']), 'wb') as f:
+        if not os.path.exists(postpath):
+            os.makedirs(postpath)
+        with io.open('{}/{}.json'.format(postpath, post['id']), 'wb') as f:
             f.write(json.dumps(post).encode())
     likes = len(post['likes']) if 'likes' in post else 0
     shares = post['shares']['count'] if 'shares' in post else 0
@@ -96,45 +110,49 @@ def store_post(post, keep_disk_copy=None):
     except KeyError:
         media = ''
 
-    kwargs = {
+    kwargs = collections.OrderedDict({
         'ID': post['id'],
         'Dato': simplify_timestamp(post['created_time']),
         'Avsender': html.escape(name),
         '# Likes': likes,
-        'Melding': html.escape(message),
+        'Melding': html.escape(message.replace('\n', ' ')),
         'Link': link, 
         'Media': media,
         '# kommentarer': len(comments),
         'kommentarer': comments_html(comments),
         'Delinger': shares,
-    }
+    })
     puts(colored.magenta(name) + \
          colored.blue(' @ {}'.format(post['created_time'])))
-    return fusion.insertrow(args.fusiontable, kwargs)
+    #return fusion.insertrow(args.fusiontable, kwargs)
+    return kwargs
 
 # Wrap this block in a while loop so we can keep paginating requests until
 # finished.
 cont = True
 while cont == True:
+    if len(feed['data']) == 0: # no posts (left)
+        puts(colored.green('Finished. Go grab a beer'))
+        break
+    puts(colored.magenta('Trawling through {} posts:'.format(len(feed['data']))))
     try:
         # Perform some action on each post in the collection we receive from
         # Facebook.
-        for post in feed['data']:
-            http_code, status = store_post(post, keep_disk_copy=args.store)
-            if http_code > 201:
-                puts(colored.red(repr(status)))
-                puts('Error detected! Cooling down for a bit might work')
-                cont = input('=================== Continue? press y =================== '.format(i))
-                if cont.strip().lower() != 'y': 
-                    cont = False
-                    break
-            else:
-                if 'kind' in status and status['kind'] == 'fusiontables#sqlresponse':
-                    luck = 'Row added. New row total is {}.'.format(status['rows'])
-                else: # dont know what the format is
-                    luck = repr(status)
-                puts(colored.green(luck))
-            time.sleep(1.7) # avoid rate limiting
+        sqlvals =  [store_post(post, keep_disk_copy=args.store) for post in feed['data'] ]
+        http_code, status = fusion.insertrows(args.fusiontable, sqlvals)
+        if http_code > 201:
+            puts(colored.red(repr(status)))
+            puts('Error detected! Cooling down for a bit might work')
+            cont = input('=================== Continue? press y =================== ')
+            if cont.strip().lower() != 'y': 
+                cont = False
+                break
+        else:
+            if 'kind' in status and status['kind'] == 'fusiontables#sqlresponse':
+                luck = 'Rows added: {}.'.format(status['rows'])
+            else: # dont know what the format is
+                luck = repr(status)
+            puts(colored.green(luck))
         # Attempt to make a request to the next page of data, if it exists.
         feed = requests.get(feed['paging']['next']).json()
     except KeyError:

@@ -113,14 +113,26 @@ class Fusion:
             cont = content
         return (int(response['status'], 10), cont)
 
-  def insertrow(self, tableid, kwargs):
+  def insertrows(self, tableid, sqlvals):
+        'sqlvals is a list of OrderedDicts' 
         def swrap(a):
             return ''' '{}' '''.format(a)
-        colnames = [ swrap(k) for k in kwargs.keys() ]
-        vals = [ swrap(kwargs[k]) for k in kwargs.keys() ]
-        sql = "INSERT INTO {} ({}) VALUES ({})".format(tableid, ', '.join(colnames), ', '.join(vals))
+        kyes = sqlvals[0].keys()
+        colnames = [ swrap(k) for k in kyes ]
+        valblock = []
+        sql = []
+        for vals in sqlvals:
+            sql.append("INSERT INTO {} ({}) VALUES ({})".format(tableid, 
+                                                                ', '.join(colnames), 
+                                                                ', '.join( [ swrap(vals[v]) for v in kyes ] )
+                                                                )
+                                                                )
+        import io
+        with io.open('/tmp/adbc', 'w') as ff:
+            ff.write(repr(sql))
+            
         logging.debug("generated INSERT sql: %r", sql)
-        return self.sql(sql) #tuple
+        return self.sql('; '.join(sql)) #returning tuple
 
 if __name__ == '__main__':
     f = Fusion()
