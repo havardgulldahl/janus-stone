@@ -2,7 +2,7 @@
 import code
 import shlex
 import sys
-
+from clint.textui import colored, puts, indent
 from sys import stderr
 
 
@@ -17,7 +17,7 @@ class CommandRunner(object):
 
     def cmd_help(self, *args):
         'List all commands and a short description'
-        return '\n'.join( [ '{} - {}'.format(nm, fn.__doc__) for nm, fn in self.commands.items() ] )
+        return '\n'.join( [ '{}\t-\t{}'.format(nm, fn.__doc__) for nm, fn in self.commands.items() ] )
 
     def run(self, line):
         tokens = shlex.split(line, comments=True)
@@ -25,9 +25,12 @@ class CommandRunner(object):
         if command not in self.commands:
             print('{}: no such command'.format(command), file=stderr)
             return
-        result = self.commands[command](*args)
-        if result is not None:
-            print(result)
+        try:
+            result = self.commands[command](*args)
+            if result is not None:
+                puts(colored.magenta(result))
+        except TypeError as e:
+            puts(colored.red(str(e)))
 
 
 class Console(object):
