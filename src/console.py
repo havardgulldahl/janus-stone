@@ -21,7 +21,10 @@ class CommandRunner(object):
 
     def run(self, line):
         tokens = shlex.split(line, comments=True)
-        command, args = tokens[0], tokens[1:]
+        try:
+            command, args = tokens[0], tokens[1:]
+        except IndexError:
+            return
         if command not in self.commands:
             print('{}: no such command'.format(command), file=stderr)
             return
@@ -30,6 +33,7 @@ class CommandRunner(object):
             if result is not None:
                 puts(colored.magenta(result))
         except TypeError as e:
+            raise
             puts(colored.red(str(e)))
 
 
