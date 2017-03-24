@@ -10,6 +10,8 @@ import logging
 from clint.textui import colored, puts, indent
 import html
 
+import console
+
 class Janus:
 
     def __init__(self):
@@ -83,15 +85,14 @@ class Janus:
         
 def main(fd=None):
     j = Janus()
-    runner = CommandRunner()
-    runner.command('set_page', j.enter)
-    runner.command('exit', room.exit)
-    runner.command('room', room.room)
-    return Console(runner).run_in_main(fd)
+    runner = console.CommandRunner()
+    runner.command('set_page', j.command_set_page)
+    return console.Console(runner).run_in_main(fd)
 
 
 
 
 if __name__ == '__main__':
+    import sys
     sys.exit(main())
 
