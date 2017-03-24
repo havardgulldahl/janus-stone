@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
+import io
+import collections
+import os
 import argparse
 import code
 import logging
 from clint.textui import colored, puts, indent
-import html.escape
-
-import console
-
+import html
 
 class Janus:
 
@@ -31,11 +31,10 @@ class Janus:
     def command_add_outsink(self, sinkname):
         _sink = '__outsink__{}'.format(sinkname)
         if hasattr(self, _sink): 
-            self.enabledsinks.append(sinkname)
-            
+            self.enabledsinks.add(sinkname)
 
     def __outsink__file(self, post, path='./data'):
-        postpath = '/{}'.format(path, self.fbpage)
+        postpath = '{}/{}'.format(path, self.fbpage)
         if not os.path.exists(postpath):
             os.makedirs(postpath)
         with io.open('{}/{}.json'.format(postpath, post['id']), 'wb') as f:
