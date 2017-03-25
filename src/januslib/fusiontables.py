@@ -3,6 +3,7 @@ import fusionclient
 from . import JanusSink
 import dateutil
 import html
+from clint.textui import colored, puts, indent
 
 FUSION_INSERT_QUEUE_MAX=25
 
@@ -20,7 +21,7 @@ def comments_html(comments):
     return ''.join(s)
 
 
-class JanusFusionTables(JanusSink):
+class JanusFusiontablesSink(JanusSink):
 
     # https://developers.google.com/fusiontables/docs/v2/reference/
     def __init__(self, tableid, output):
@@ -70,7 +71,7 @@ class JanusFusionTables(JanusSink):
         })
         return kwargs
 
-    def push(self, post)
+    def push(self, post):
         'Take a post and prepare it for upload'
         squeezed_post = self.__format_post(post)
         self._q.append(squeezed_post)
@@ -83,10 +84,6 @@ class JanusFusionTables(JanusSink):
         if http_code > 201:
             puts(colored.red(repr(status)), stream=self.output)
             puts('Error detected! Cooling down for a bit might work', stream=self.output)
-            cont = input('=================== Continue? press y =================== ')
-            if cont.strip().lower() != 'y': 
-                cont = False
-                break
         else:
             if 'kind' in status and status['kind'] == 'fusiontables#sqlresponse':
                 luck = 'Rows added: {}.'.format(status['rows'])

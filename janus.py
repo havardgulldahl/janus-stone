@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
+import sys
 import io
 import fnmatch
 import collections
@@ -13,6 +14,10 @@ from clint.textui import colored, puts, indent
 import html
 
 import console
+
+from januslib import JanusFileSink
+from januslib.fb import JanusFB
+from januslib.fusiontables import JanusFusiontablesSink
 
 def datestring(string):
     try:
@@ -34,26 +39,36 @@ def lvl(string):
 
 argp = argparse.ArgumentParser()
 argp.add_argument('--loglevel', type=lvl, default=logging.INFO, help='Set log level')
+argp.add_argument('--fbpage', help='Set Facebook page name')
+argp.add_argument('--add_sink', action='append', nargs='*', help='Add output sink to chain')
 
 args = argp.parse_args()
 
 logging.basicConfig(level=args.loglevel)
 
 class Janus:
+    output = sys.stdout
 
     def __init__(self):
         self.fbpage = None
+        self.fb = None
         self.outsinks = [func[10:] for func in dir(self) if callable(getattr(self, func)) and func.startswith("_outsink__")]
         self.enabledsinks = [] # list of tuples (cmd, *args)
         self.since = None # datetime.datetime
         self.until = None # datetime.datetime
         self.cachepath = None # where to store cached posts
+        if args.fbpage is not None:
+            self.command_set_page(args.fbpage)
+        logging.debug('sinks: %r', args.add_sink)
+        if args.add_sink is not None:
+            for s in args.add_sink:
+                self.command_add_outsink(s[0], s[1:])
         self.format_prompt()
 
     def format_prompt(self):
         ps1 = colored.magenta(self.fbpage) if self.fbpage else colored.red('FB Page unset')
         ps1 += ' -> ['
-        _sinks = ['sink:{}'.format(c[0]) for c in self.enabledsinks]
+        _sinks = ['sink:{}'.format(c) for c in self.enabledsinks]
         ps1 += colored.green(', '.join(_sinks)) if _sinks else colored.red('No sinks set')
         ps1 += '] '
         ps1 += colored.yellow('({} posts in cache)'.format(self.count_cached_files()))
@@ -71,13 +86,14 @@ class Janus:
     def command_set_page(self, pagename):
         'Set the Facebook Page that we are pulling data from. Mandatory'
         self.fbpage = pagename
+        self.fb = JanusFB(pagename, self.output)
         self.format_prompt()
 
     def command_add_outsink(self, sinkname, *args):
         'Add a sink to send each post to. You may add several sinks'
         _sink = '_outsink__{}'.format(sinkname)
         if hasattr(self, _sink): 
-            self.enabledsinks.append((sinkname, *args))
+            self.enabledsinks.append(getattr(self, _sink)(*args))
             self.format_prompt()
 
     def command_list_outsinks(self):
@@ -88,66 +104,34 @@ class Janus:
     def command_list_enabled_outsinks(self):
         'List all enabled outsinks'
         logging.debug('enabledsinks: %r', self.enabledsinks)
-        return '\n'.join( [ '{}\t:\t\t{}'.format(nm, args) for (nm, args) in self.enabledsinks ] )
+        return '\n'.join( [ '{}\t:\t\t{}'.format(sink, sink.__doc__) for sink in self.enabledsinks ] )
 
     def command_pull_posts(self):
         'Pull posts from current FB Page, respecting Until and Since if they are set'
+        # cache receivers
+        for post in self.fb: # iterate through feed
+            for sink in self.enabledsinks:
+                sink.push(post)
 
     def command_update_fusiontable(self):
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
 
-    def _outsink__file(self, post, path='./data'):
+    def _outsink__file(self, path='./data'):
         'Store post JSON to a file on disk. Args: path (optional)'
         self.cachepath = '{}/{}'.format(path, self.fbpage)
-        if not os.path.exists(self.cachepath):
-            os.makedirs(self.cachepath)
-        with io.open('{}/{}.json'.format(self.cachepath, post['id']), 'wb') as f:
-            f.write(json.dumps(post).encode())
+        return JanusFileSink(self.cachepath, self.output)
 
     def count_cached_files(self):
-        return len(fnmatch.filter(os.listdir(self.cachepath), '*.json'))
+        if self.cachepath is None:
+            return -1
+        try:
+            return len(fnmatch.filter(os.listdir(self.cachepath), '*.json'))
+        except FileNotFoundError:
+            return -1
 
     def _outsink__fusiontables(self, post, tableid):
         'Push Post data to Google Fusion Tables. Args:  tableid'
-        likes = len(post['likes']) if 'likes' in post else 0
-        shares = post['shares']['count'] if 'shares' in post else 0
-        comments = post['comments']['data'] if 'comments' in post else []
-        message = post['message'] if 'message' in post else ''
-        link = post['link'] if 'link' in post else ''
-        try:
-            name = post['from']['name']
-        except KeyError:
-            try:
-                name = post['data']['name']
-            except KeyError:
-                name = 'Unknown'
-        try:
-            if post['type'] == 'video':
-                media = post['source']
-            elif post['type'] == 'photo':
-                media = post['picture']
-            else:
-                media = ''
-        except KeyError:
-            media = ''
-
-        kwargs = collections.OrderedDict({
-            'ID': post['id'],
-            'Dato': simplify_timestamp(post['created_time']),
-            'Avsender': html.escape(name),
-            '# Likes': likes,
-            'Melding': html.escape(message.replace('\n', ' ')),
-            'Link': link, 
-            'Media': media,
-            '# kommentarer': len(comments),
-            'kommentarer': comments_html(comments),
-            'Delinger': shares,
-        })
-        puts(colored.magenta(name) + \
-            colored.blue(' @ {}'.format(post['created_time'])))
-        #return fusion.insertrow(args.fusiontable, kwargs)
-        return kwargs
-
+        return JanusFusiontablesSink(tableid, self.output)
         
 def main(fd=None):
     j = Janus()
@@ -158,10 +142,8 @@ def main(fd=None):
     runner.command('add_sink', j.command_add_outsink)
     runner.command('all_sinks', j.command_list_outsinks)
     runner.command('enabled_sinks', j.command_list_enabled_outsinks)
+    runner.command('pull', j.command_pull_posts)
     return console.Console(runner).run_in_main(fd)
-
-
-
 
 if __name__ == '__main__':
     import sys
