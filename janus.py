@@ -48,6 +48,7 @@ class Janus:
         self.since = None # datetime.datetime
         self.until = None # datetime.datetime
         self.cachepath = None # where to store cached posts
+        self.format_prompt()
 
     def format_prompt(self):
         ps1 = '{} '.format(self.fbpage or 'FB Page unset')
@@ -84,6 +85,13 @@ class Janus:
         'List all enabled outsinks'
         logging.debug('enabledsinks: %r', self.enabledsinks)
         return '\n'.join( [ '{}\t:\t\t{}'.format(nm, args) for (nm, args) in self.enabledsinks ] )
+
+    def command_pull_posts(self):
+        'Pull posts from current FB Page, respecting Until and Since if they are set'
+
+    def command_update_fusiontable(self):
+        'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
+
 
     def _outsink__file(self, post, path='./data'):
         'Store post JSON to a file on disk. Args: path (optional)'
