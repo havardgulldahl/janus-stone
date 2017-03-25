@@ -51,9 +51,13 @@ class Janus:
         self.format_prompt()
 
     def format_prompt(self):
-        ps1 = '{} '.format(self.fbpage or 'FB Page unset')
-        ps1 += '-> [{}] '.format(', '.join([c[0] for c in self.enabledsinks]))
-        ps1 += '({} posts in cache) > '.format(self.count_cached_files())
+        ps1 = colored.magenta(self.fbpage) if self.fbpage else colored.red('FB Page unset')
+        ps1 += ' -> ['
+        _sinks = ['sink:{}'.format(c[0]) for c in self.enabledsinks]
+        ps1 += colored.green(', '.join(_sinks)) if _sinks else colored.red('No sinks set')
+        ps1 += '] '
+        ps1 += colored.yellow('({} posts in cache)'.format(self.count_cached_files()))
+        ps1 += ' > '
         sys.ps1 = ps1
 
     def command_set_since(self, datetimestring):
@@ -91,7 +95,6 @@ class Janus:
 
     def command_update_fusiontable(self):
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
-
 
     def _outsink__file(self, post, path='./data'):
         'Store post JSON to a file on disk. Args: path (optional)'
