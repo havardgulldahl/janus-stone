@@ -33,6 +33,9 @@ class JanusSink:
     def push(self, post):
         raise NotImplementedError
 
+    def finished(self):
+        raise NotImplementedError
+
 class JanusFileSink(JanusSink):
     
     def __init__(self, cachepath, output):
@@ -48,3 +51,7 @@ class JanusFileSink(JanusSink):
             os.makedirs(self.cachepath)
         with io.open('{}/{}.json'.format(self.cachepath, post['id']), 'wb') as f:
             f.write(json.dumps(post).encode())
+
+    def finished(self):
+        pass
+

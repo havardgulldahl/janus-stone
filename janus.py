@@ -122,6 +122,8 @@ class Janus:
         for post in self.fb: # iterate through feed
             for sink in self.enabledsinks:
                 sink.push(post)
+        for sink in self.enabledsinks:
+            sink.finished() # let sinks clean up and empty their queues
 
     def command_update_fusiontable(self):
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'

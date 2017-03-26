@@ -52,6 +52,7 @@ class JanusFusiontablesSink(JanusSink):
         comments = post['comments']['data'] if 'comments' in post else []
         message = post['message'] if 'message' in post else ''
         link = post['link'] if 'link' in post else ''
+        permalink = post['permalink_url'] if 'permalink_url' in post else ''
         try:
             name = post['from']['name']
         except KeyError:
@@ -80,6 +81,7 @@ class JanusFusiontablesSink(JanusSink):
             '# kommentarer': len(comments),
             'kommentarer': comments_html(comments),
             'Delinger': shares,
+            'Permalink': permalink,
         })
         return kwargs
 
@@ -90,6 +92,11 @@ class JanusFusiontablesSink(JanusSink):
         if len(self._q) == FUSION_INSERT_QUEUE_MAX:
             self.insert_sql(self._q)
             self._q = []
+
+    def finished(self):
+        'Finish off queue'
+        if len(self._q) > 0:
+            self.insert_sql(self._q)
         
     def insert_sql(self, rowdata):
         http_code, status = self.fusion.insertrows(self.tableid, rowdata)
