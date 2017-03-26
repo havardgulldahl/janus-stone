@@ -57,7 +57,7 @@ fusion = fusionclient.Fusion()
 
 graph = facebook.GraphAPI(access_token=os.environ.get('FB_APP_TOKEN'), version='2.8')
 
-params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message},likes{name},shares,type,source,picture,link'
+params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message,comments{from,like_count,created_time,message,comments{from,like_count,created_time,message}},created_time},likes{name},shares,type,source,picture,link,permalink_url'
             }
 
 if args.since:
