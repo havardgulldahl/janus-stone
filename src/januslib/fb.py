@@ -12,12 +12,12 @@ from . import JanusSource
 class JanusFB(JanusSource):
 
     def __init__(self, facebookpage, output):
-        super(JanusFB, self).__init__(output)
+        super().__init__(output)
         self.graph = facebook.GraphAPI(access_token=os.environ.get('FB_APP_TOKEN'), version='2.8')
         self.pagename = facebookpage
 
         # seed feed
-        self.params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message},likes{name},shares,type,source,picture,link'
+        self.params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message,comments{from,like_count,created_time,message,comments{from,like_count,created_time,message}},created_time},likes{name},shares,type,source,picture,link,permalink_url'
                     }
 
     def authenticate(self):

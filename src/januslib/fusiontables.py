@@ -16,7 +16,14 @@ def comments_html(comments):
     'Turn a json list of comments into an html string'
     s = ['<ul>', ]
     for com in comments:
-        s.append('<li><b>{}</b> (+{}): {}</li>'.format(html.escape(com['from']['name']), com['like_count'], html.escape(com['message'])))
+        s.append('<li><b title="@ {}">{}</b> <span title="# likes">(+{})</span>: {}'.format(fusionify_timestamp(com['created_time']),
+                                                                                                    html.escape(com['from']['name']), 
+                                                                                                    com['like_count'], 
+                                                                                                    html.escape(com['message'])))
+        if 'comments' in com:
+            #recurse into nested comment
+            s.append(comments_html(com['comments']['data']))
+        s.append('</li>')
     s.append('</ul>')
     return ''.join(s)
 
@@ -25,7 +32,7 @@ class JanusFusiontablesSink(JanusSink):
 
     # https://developers.google.com/fusiontables/docs/v2/reference/
     def __init__(self, tableid, output):
-        super(JanusFusionTables, self).__init__(output)
+        super().__init__(output)
         self.tableid = tableid
         self.fusion = fusionclient.Fusion()
         self._q = []

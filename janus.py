@@ -62,7 +62,8 @@ class Janus:
         logging.debug('sinks: %r', args.add_sink)
         if args.add_sink is not None:
             for s in args.add_sink:
-                self.command_add_outsink(s[0], s[1:])
+                logging.debug('adding sink: %r, args: %r', s[0], *s[1:])
+                self.command_add_outsink(s[0], *s[1:])
         self.format_prompt()
 
     def format_prompt(self):
@@ -99,9 +100,10 @@ class Janus:
 
     def command_add_outsink(self, sinkname, *args):
         'Add a sink to send each post to. You may add several sinks'
+        logging.debug('command_add_outsink: sinkname=%r, *args=%r', sinkname, args)
         _sink = '_outsink__{}'.format(sinkname)
         if hasattr(self, _sink): 
-            self.enabledsinks.append(getattr(self, _sink)(*args))
+            self.enabledsinks.append(getattr(self, _sink)(self, *args))
             self.format_prompt()
 
     def command_list_outsinks(self):

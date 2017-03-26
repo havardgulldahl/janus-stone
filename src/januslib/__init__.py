@@ -28,7 +28,7 @@ class JanusSink:
 class JanusFileSink(JanusSink):
     
     def __init__(self, cachepath, output):
-        super(JanusFileSink, self).__init__(output)
+        super().__init__(output)
         self.cachepath = cachepath
 
     def push(self, post):
