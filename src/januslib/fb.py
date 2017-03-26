@@ -20,6 +20,10 @@ class JanusFB(JanusSource):
         self.params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message,comments{from,like_count,created_time,message,comments{from,like_count,created_time,message}},created_time},likes{name},shares,type,source,picture,link,permalink_url'
                     }
 
+    def __str__(self):
+        'return pretty name'
+        return '<Facebook(<-{})>'.format(self.pagename)
+
     def authenticate(self):
         raise NotImplementedError
 

@@ -1,7 +1,7 @@
 import collections
 import fusionclient
 from . import JanusSink
-import dateutil
+import dateutil.parser
 import html
 from clint.textui import colored, puts, indent
 
@@ -16,10 +16,11 @@ def comments_html(comments):
     'Turn a json list of comments into an html string'
     s = ['<ul>', ]
     for com in comments:
-        s.append('<li><b title="@ {}">{}</b> <span title="# likes">(+{})</span>: {}'.format(fusionify_timestamp(com['created_time']),
-                                                                                                    html.escape(com['from']['name']), 
-                                                                                                    com['like_count'], 
-                                                                                                    html.escape(com['message'])))
+        s.append('<li><b>{}</b> (+{}): {}'.format(html.escape(com['from']['name']), 
+                                                    com['like_count'], 
+                                                    html.escape(com['message'])
+                                                    )
+                )
         if 'comments' in com:
             #recurse into nested comment
             s.append(comments_html(com['comments']['data']))
@@ -36,6 +37,10 @@ class JanusFusiontablesSink(JanusSink):
         self.tableid = tableid
         self.fusion = fusionclient.Fusion()
         self._q = []
+
+    def __str__(self):
+        'return pretty name'
+        return '<Fusiontables(->{}..)>'.format(self.tableid[:8])
 
     def autenticate(self):
         raise NotImplementedError # TODO: FIX
@@ -66,7 +71,7 @@ class JanusFusiontablesSink(JanusSink):
 
         kwargs = collections.OrderedDict({
             'ID': post['id'],
-            'Dato': simplify_timestamp(post['created_time']),
+            'Dato': fusionify_timestamp(post['created_time']),
             'Avsender': html.escape(name),
             '# Likes': likes,
             'Melding': html.escape(message.replace('\n', ' ')),
@@ -87,13 +92,13 @@ class JanusFusiontablesSink(JanusSink):
             self._q = []
         
     def insert_sql(self, rowdata):
-        http_code, status = self.fusion.insertrows(self.fusiontable, rowdata)
+        http_code, status = self.fusion.insertrows(self.tableid, rowdata)
         if http_code > 201:
             puts(colored.red(repr(status)), stream=self.output)
-            puts('Error detected! Cooling down for a bit might work', stream=self.output)
+            puts('Error detected! Cooling down for a bit might work', self.output)
         else:
             if 'kind' in status and status['kind'] == 'fusiontables#sqlresponse':
                 luck = 'Rows added: {}.'.format(status['rows'])
             else: # dont know what the format is
                 luck = repr(status)
-            puts(colored.green(luck), stream=self.output)
+            puts(colored.green(luck), self.output)

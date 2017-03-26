@@ -8,6 +8,10 @@ class JanusSource:
         self.output = outputchannel # duck typed file object 
         # seed feed
 
+    def __str__(self):
+        'return pretty name'
+        return '<{}>'.format(self.__class__.__name__)
+
     def authenticate(self):
         raise NotImplementedError
 
@@ -18,6 +22,10 @@ class JanusSink:
     def __init__(self, outputchannel):
         self.output = outputchannel # duck typed file object 
         # seed feed
+
+    def __str__(self):
+        'return pretty name'
+        return '<{}>'.format(self.__class__.__name__)
 
     def authenticate(self):
         raise NotImplementedError
@@ -30,6 +38,10 @@ class JanusFileSink(JanusSink):
     def __init__(self, cachepath, output):
         super().__init__(output)
         self.cachepath = cachepath
+
+    def __str__(self):
+        'return pretty name'
+        return '<File(->{})>'.format(self.cachepath)
 
     def push(self, post):
         if not os.path.exists(self.cachepath):
