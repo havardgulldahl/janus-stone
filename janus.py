@@ -9,7 +9,7 @@ import os
 import argparse
 import code
 import logging
-import datetime
+from datetime import datetime
 from clint.textui import colored, puts, indent
 import html
 
@@ -54,8 +54,8 @@ class Janus:
         self.fb = None
         self.outsinks = [func[10:] for func in dir(self) if callable(getattr(self, func)) and func.startswith("_outsink__")]
         self.enabledsinks = [] # list of tuples (cmd, *args)
-        self.since = None # datetime.datetime
-        self.until = None # datetime.datetime
+        self.since = None # unix timestamp
+        self.until = None # unix timestamp
         self.cachepath = None # where to store cached posts
         if args.fbpage is not None:
             self.command_set_page(args.fbpage)
@@ -66,7 +66,7 @@ class Janus:
         self.format_prompt()
 
     def format_prompt(self):
-        ps1 = colored.magenta(self.fbpage) if self.fbpage else colored.red('FB Page unset')
+        ps1 = colored.magenta('@'+self.fbpage) if self.fbpage else colored.red('FB Page unset')
         ps1 += ' -> ['
         _sinks = ['sink:{}'.format(c) for c in self.enabledsinks]
         ps1 += colored.green(', '.join(_sinks)) if _sinks else colored.red('No sinks set')
@@ -78,15 +78,23 @@ class Janus:
     def command_set_since(self, datetimestring):
         'The datetime to start the Facebook Page retrieval at. Args: timestamp, format YYYY-MM-DD [HH:MM:SS]'
         self.since = datestring(datetimestring)
+        if self.fb is not None:
+            self.fb.set_since(self.since)
 
     def command_set_until(self, datetimestring):
         'The datetime to end the Facebook Page retrieval at. Args: timestamp, format YYYY-MM-DD [HH:MM:SS]'
         self.until = datestring(datetimestring)
+        if self.fb is not None:
+            self.fb.set_until(self.until)
 
     def command_set_page(self, pagename):
         'Set the Facebook Page that we are pulling data from. Mandatory'
         self.fbpage = pagename
         self.fb = JanusFB(pagename, self.output)
+        if self.since is not None:
+            self.fb.set_since(self.since)
+        if self.until is not None:
+            self.fb.set_until(self.until)
         self.format_prompt()
 
     def command_add_outsink(self, sinkname, *args):
@@ -122,6 +130,7 @@ class Janus:
         return JanusFileSink(self.cachepath, self.output)
 
     def count_cached_files(self):
+        logging.debug('count cache: %r', self.cachepath)
         if self.cachepath is None:
             return -1
         try:

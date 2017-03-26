@@ -17,14 +17,20 @@ class JanusFB(JanusSource):
         self.pagename = facebookpage
 
         # seed feed
-        params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message},likes{name},shares,type,source,picture,link'
+        self.params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message},likes{name},shares,type,source,picture,link'
                     }
-        self.feed = self.graph.request('/{}/feed'.format(facebookpage), params)
 
     def authenticate(self):
         raise NotImplementedError
 
+    def set_since(self, timestamp):
+        self.params['since'] = timestamp
+
+    def set_until(self, timestamp):
+        self.params['until'] = timestamp
+
     def __iter__(self):
+        self.feed = self.graph.request('/{}/feed'.format(self.pagename), self.params)
         # Wrap this block in a while loop so we can keep paginating requests until
         # finished.
         cont = True
