@@ -31,6 +31,9 @@ def datestring(string):
             msg = "%r is not a YYYY-MM-DD [HH:MM:SS] timestamp" % string
             raise Exception(msg)
 
+def unixtimetoiso8601(timestamp):
+    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
 def lvl(string):
     try:
         return getattr(logging, string.upper())
@@ -41,6 +44,8 @@ argp = argparse.ArgumentParser()
 argp.add_argument('--loglevel', type=lvl, default=logging.INFO, help='Set log level')
 argp.add_argument('--fbpage', help='Set Facebook page name')
 argp.add_argument('--add_sink', action='append', nargs='*', help='Add output sink to chain')
+argp.add_argument('--since', help='Date in YYYY-MM-DD [HH:MM:SS] format')
+argp.add_argument('--until', help='Date in YYYY-MM-DD [HH:MM:SS] format')
 
 args = argp.parse_args()
 
@@ -57,23 +62,16 @@ class Janus:
         self.since = None # unix timestamp
         self.until = None # unix timestamp
         self.cachepath = None # where to store cached posts
-        if args.fbpage is not None:
-            self.command_set_page(args.fbpage)
-        logging.debug('sinks: %r', args.add_sink)
-        if args.add_sink is not None:
-            for s in args.add_sink:
-                _args = s[1:] if len(s) > 1 else []
-                logging.debug('adding sink: %r, args: %r', s[0], _args)
-                self.command_add_outsink(s[0], *_args)
-        self.format_prompt()
 
     def format_prompt(self):
         ps1 = colored.magenta('@'+self.fbpage) if self.fbpage else colored.red('FB Page unset')
-        ps1 += ' -> ['
+        ps1 += ' ▶ ['
         _sinks = ['sink:{}'.format(c) for c in self.enabledsinks]
         ps1 += colored.green(', '.join(_sinks)) if _sinks else colored.red('No sinks set')
         ps1 += '] '
-        ps1 += colored.yellow('({} posts in cache)'.format(self.count_cached_files()))
+        if self.since or self.until:
+            ps1 += '|{}↦{}| '.format(unixtimetoiso8601(self.since) if self.since else '∞', unixtimetoiso8601(self.until) if self.until else '∞')
+        ps1 += colored.yellow('({} cached)'.format(self.count_cached_files()))
         ps1 += '\n > '
         sys.ps1 = ps1
 
@@ -160,8 +158,22 @@ class Janus:
         'Push Post data to Google Fusion Tables. Args:  tableid'
         return JanusFusiontablesSink(tableid, self.output)
         
-def main(fd=None):
+if __name__ == '__main__':
+    import sys
     j = Janus()
+    if args.fbpage is not None:
+        j.command_set_page(args.fbpage)
+    logging.debug('sinks: %r', args.add_sink)
+    if args.add_sink is not None:
+        for s in args.add_sink:
+            _args = s[1:] if len(s) > 1 else []
+            logging.debug('adding sink: %r, args: %r', s[0], _args)
+            j.command_add_outsink(s[0], *_args)
+    if args.since is not None:
+        j.command_set_since(args.since)
+    if args.until is not None:
+        j.command_set_until(args.until)
+
     runner = console.CommandRunner()
     runner.command('set_page', j.command_set_page)
     runner.command('set_since', j.command_set_since)
@@ -171,9 +183,8 @@ def main(fd=None):
     runner.command('enabled_sinks', j.command_list_enabled_outsinks)
     runner.command('disable_sink', j.command_disable_outsink)
     runner.command('pull', j.command_pull_posts)
-    return console.Console(runner).run_in_main(fd)
+    ex = console.Console(runner).run_in_main()
+    j.format_prompt()
+    sys.exit(ex)
 
-if __name__ == '__main__':
-    import sys
-    sys.exit(main())
 
