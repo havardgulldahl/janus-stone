@@ -106,6 +106,17 @@ class Janus:
             self.enabledsinks.append(getattr(self, _sink)(*args))
             self.format_prompt()
 
+    def command_disable_outsink(self, sinkid):
+        'Disable a sink by its sink ID. See enabled sinks to get the id'
+        if sinkid[0] == '#': sinkid = sinkid[1:]
+        try:
+            item = [ s for s in self.enabledsinks if s.id == sinkid][0]
+            self.enabledsinks.remove(item)
+            self.format_prompt()
+        except IndexError: # no such sink id
+            puts(colored.red('No such sink ID: {}'.format(sinkid)))
+            return False
+
     def command_list_outsinks(self):
         'List all possible outsinks'
         logging.debug('self.outsinks: %r', self.outsinks)
@@ -129,7 +140,7 @@ class Janus:
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
 
     def _outsink__file(self, path=None):
-        'Store post JSON to a file on disk. Args: path (optional)'
+        'Store post JSON to a file on disk. Args: path (optional, defaults to ./data)'
         if not path:
             path = './data'
         self.cachepath = '{}/{}'.format(path, self.fbpage)
@@ -157,6 +168,7 @@ def main(fd=None):
     runner.command('add_sink', j.command_add_outsink)
     runner.command('all_sinks', j.command_list_outsinks)
     runner.command('enabled_sinks', j.command_list_enabled_outsinks)
+    runner.command('disable_sink', j.command_disable_outsink)
     runner.command('pull', j.command_pull_posts)
     return console.Console(runner).run_in_main(fd)
 

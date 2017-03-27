@@ -1,7 +1,7 @@
 import os
 import io
 import json
-import json
+import uuid
 
 class JanusSource:
     def __init__(self, outputchannel):
@@ -41,10 +41,11 @@ class JanusFileSink(JanusSink):
     def __init__(self, cachepath, output):
         super().__init__(output)
         self.cachepath = cachepath
+        self.id = str(uuid.uuid4())[:4]
 
     def __str__(self):
         'return pretty name'
-        return '<File(->{})>'.format(self.cachepath)
+        return '<#{} File(->{})>'.format(self.id,self.cachepath)
 
     def push(self, post):
         if not os.path.exists(self.cachepath):
