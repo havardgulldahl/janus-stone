@@ -62,9 +62,9 @@ class Janus:
         logging.debug('sinks: %r', args.add_sink)
         if args.add_sink is not None:
             for s in args.add_sink:
-                logging.debug('adding sink: %r, args: %r', s[0], *s[1:])
-                self.command_add_outsink(s[0], *s[1:])
-        self.format_prompt()
+                _args = s[1:] if len(s) > 1 else []
+                logging.debug('adding sink: %r, args: %r', s[0], _args)
+                self.command_add_outsink(s[0], _args)
 
     def format_prompt(self):
         ps1 = colored.magenta('@'+self.fbpage) if self.fbpage else colored.red('FB Page unset')
@@ -103,7 +103,7 @@ class Janus:
         logging.debug('command_add_outsink: sinkname=%r, *args=%r', sinkname, args)
         _sink = '_outsink__{}'.format(sinkname)
         if hasattr(self, _sink): 
-            self.enabledsinks.append(getattr(self, _sink)(self, *args))
+            self.enabledsinks.append(getattr(self, _sink)(*args))
             self.format_prompt()
 
     def command_list_outsinks(self):
@@ -128,8 +128,10 @@ class Janus:
     def command_update_fusiontable(self):
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
 
-    def _outsink__file(self, path='./data'):
+    def _outsink__file(self, path=None):
         'Store post JSON to a file on disk. Args: path (optional)'
+        if not path:
+            path = './data'
         self.cachepath = '{}/{}'.format(path, self.fbpage)
         return JanusFileSink(self.cachepath, self.output)
 
@@ -142,7 +144,7 @@ class Janus:
         except FileNotFoundError:
             return -1
 
-    def _outsink__fusiontables(self, post, tableid):
+    def _outsink__fusiontables(self, tableid):
         'Push Post data to Google Fusion Tables. Args:  tableid'
         return JanusFusiontablesSink(tableid, self.output)
         

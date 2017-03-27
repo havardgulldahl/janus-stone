@@ -101,11 +101,11 @@ class JanusFusiontablesSink(JanusSink):
     def insert_sql(self, rowdata):
         http_code, status = self.fusion.insertrows(self.tableid, rowdata)
         if http_code > 201:
-            puts(colored.red(repr(status)), stream=self.output)
+            puts(colored.red(repr(status)))
             puts('Error detected! Cooling down for a bit might work', self.output)
         else:
             if 'kind' in status and status['kind'] == 'fusiontables#sqlresponse':
-                luck = 'Rows added: {}.'.format(status['rows'])
+                luck = '{} rows added: {}.'.format(len(status['rows']), status['rows'])
             else: # dont know what the format is
                 luck = repr(status)
             puts(colored.green(luck), self.output)
