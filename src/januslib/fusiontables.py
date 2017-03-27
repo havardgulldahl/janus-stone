@@ -40,7 +40,7 @@ class JanusFusiontablesSink(JanusSink):
 
     def __str__(self):
         'return pretty name'
-        return '<Fusiontables(->{}..)>'.format(self.tableid[:8])
+        return '<#{} Fusiontables(->{}..)>'.format(self.id, self.tableid[:8])
 
     def autenticate(self):
         raise NotImplementedError # TODO: FIX

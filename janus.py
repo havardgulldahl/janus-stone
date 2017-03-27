@@ -64,7 +64,8 @@ class Janus:
             for s in args.add_sink:
                 _args = s[1:] if len(s) > 1 else []
                 logging.debug('adding sink: %r, args: %r', s[0], _args)
-                self.command_add_outsink(s[0], _args)
+                self.command_add_outsink(s[0], *_args)
+        self.format_prompt()
 
     def format_prompt(self):
         ps1 = colored.magenta('@'+self.fbpage) if self.fbpage else colored.red('FB Page unset')
@@ -73,7 +74,7 @@ class Janus:
         ps1 += colored.green(', '.join(_sinks)) if _sinks else colored.red('No sinks set')
         ps1 += '] '
         ps1 += colored.yellow('({} posts in cache)'.format(self.count_cached_files()))
-        ps1 += ' > '
+        ps1 += '\n > '
         sys.ps1 = ps1
 
     def command_set_since(self, datetimestring):
