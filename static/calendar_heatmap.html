@@ -1,0 +1,34 @@
+<html>
+  <head>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+    google.charts.load('current');  // Note: No need to specify chart packages.
+      //"dataSourceUrl": "https://www.google.com/fusiontables/data?docid=1VlPiBCkYt_Vio-JT3UwM-U__APurJvPb6ZEJPg",
+    google.charts.setOnLoadCallback(drawVisualization);
+  function drawVisualization() {
+
+     google.visualization.drawChart({
+           "containerId": "visualization_div",
+           "dataSourceUrl": "//www.google.com/fusiontables/gvizdata?tq=",
+           "query":"SELECT 'Avsender', 'Dato' FROM " +
+                   "1oItxz0c72E8x6p0qJiscm23GJC5qxfiWFPeAX8bb WHERE 'Dato' < '2016.11.30' ",
+           "refreshInterval": 150,
+           "chartType": "Histogram",
+           "options": {"width": "100%", 
+                       "height": "100%",
+                       "hAxis": {
+                            viewWindowMode: "pretty",
+                            title: "tid",
+                            format: 'd/M/yy'
+                        }
+            }
+     });
+  }
+
+</script>
+  </head>
+  <body>
+    <div id="visualization_div" style="width: 1000px; height: 350px;"></div>
+  </body>
+</html>
+

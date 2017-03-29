@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+  <head>
+<script src="jquery-1.8.0.js"></script>
+<script src="underscore-min.js"></script>
+<script src="fusiontables.js"></script>
+<script type="text/javascript">
+
+var scope = "https://www.googleapis.com/auth/fusiontables";
+var tableId="";
+
+var ft = new FusionTables({
+  key: '',
+  tableId: tableId,
+  columns: ["First Name", "Last Name"]
+});
+
+var tpl = _.template("<div data-rowid=<%=rowid%> >avsender: <%= Avsender %><br>melding: <%= Melding %><br>Kommentarer: <%= kommentarer %><br><b>Relevant?</b><button onclick='answer(this, true)'>Yes</button><button onclick='answer(this, false)'>No</button></div>");
+var success = function(data) {
+  console.log('success! %o', data);
+  var box = document.getElementById("box");
+  var h =  _.map(data, tpl).join("<p>");
+
+  box.innerHTML = h;
+};
+var error = function(error) {
+  console.error(error);
+};
+
+
+var put = function(post_row_id, relevant_value) {
+  var sql="INSERT INTO "+tableId+" SET 'relevant?' = "+relevant_value+" WHERE ROWID="+post_row_id+" LIMIT 1;"
+
+};
+
+var answer = function(obj, val) {
+  console.log('Got answer for %o: %o', obj.parentNode.dataset.rowid, val)
+  getnext();
+
+};
+
+var getnext = function() {
+  var sql="SELECT ROWID,Melding,kommentarer,Avsender,ID,'relevant?' FROM "+tableId+" WHERE 'relevant?'='' LIMIT 1;"
+  ft.query(success, error, sql);
+};
+
+
+</script>
+  </head>
+  <body onload=getnext()>
+    <div id="box" style="width: 1000px; height: 350px; border:3px double gray"></div>
+  </body>
+</html>
+
