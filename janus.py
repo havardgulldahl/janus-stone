@@ -18,6 +18,7 @@ import console
 from januslib import JanusFileSink
 from januslib.fb import JanusFB
 from januslib.fusiontables import JanusFusiontablesSink
+from januslib.filesinks import JanusFileSink, JanusCSVSink
 
 def datestring(string):
     try:
@@ -129,11 +130,15 @@ class Janus:
     def command_pull_posts(self):
         'Pull posts from current FB Page, respecting Until and Since if they are set'
         # cache receivers
+        i = 0
         for post in self.fb: # iterate through feed
+            puts(colored.blue('Handling post # {}'.format(post['ID']), self.output)
             for sink in self.enabledsinks:
                 sink.push(post)
+            i = i+1
         for sink in self.enabledsinks:
             sink.finished() # let sinks clean up and empty their queues
+        puts(colored.blue('Finished pulling {} posts from Facebook page {}'.format(i, self.fbpage), self.output)
 
     def command_update_fusiontable(self):
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
@@ -157,6 +162,15 @@ class Janus:
     def _outsink__fusiontables(self, tableid):
         'Push Post data to Google Fusion Tables. Args:  tableid'
         return JanusFusiontablesSink(tableid, self.output)
+
+    def _outsink__csv(self, filename, separator=None):
+        'Push Post data to a CSV file. Args: filename, separator(optional, defaults to ,)'
+        return JanusCSVSink(filename, separator, self.output)
+
+    def command_set_runlog(self, logname):
+        'Set up logging to file. Everything that goes to console also goes there'
+        pass # TODO IMPLEMENT
+
         
 if __name__ == '__main__':
     import sys
@@ -186,5 +200,4 @@ if __name__ == '__main__':
     ex = console.Console(runner).run_in_main()
     j.format_prompt()
     sys.exit(ex)
-
 
