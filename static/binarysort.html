@@ -8,9 +8,10 @@
 
 var scope = "https://www.googleapis.com/auth/fusiontables";
 var tableId="";
+var api_key='';
 
 var ft = new FusionTables({
-  key: '',
+  key: api_key,
   tableId: tableId,
   columns: ["First Name", "Last Name"]
 });
@@ -44,11 +45,66 @@ var getnext = function() {
   ft.query(success, error, sql);
 };
 
-
 </script>
   </head>
-  <body onload=getnext()>
-    <div id="box" style="width: 1000px; height: 350px; border:3px double gray"></div>
+  <body>
+    <div id="auth">
+    <!--Add buttons to initiate auth sequence and sign out-->
+    <button id="authorize-button" >Authorize</button>
+    <button id="signout-button" style="display: none;">Sign Out</button>
+    </div>
+    <div id="box" style="display:none; width: 1000px; height: 350px; border:3px double gray"></div>
+
+<script type="text/javascript">
+var GoogleAuth; // Google Auth object.
+var signoutButton = $('#signout-button');
+var authorizeButton = $('#authorize-button');
+
+  function handleClientLoad() {
+    // Load the API's client and auth2 modules.
+    // Call the initClient function after the modules load.
+    gapi.load('client:auth2', initClient);
+  }
+
+ function updateSigninStatus(isSignedIn) {
+    var user = GoogleAuth.currentUser.get();
+    var isAuthorized = user.hasGrantedScopes(scope);
+    if (isAuthorized) {
+      signoutButton.show();
+      authorizeButton.hide();
+    } else {
+      signoutButton.hide();
+      authorizeButton.show();
+    }
+  }
+
+function initClient() {
+  gapi.client.init({
+      'apiKey': api_key,
+      'clientId': '957273849771-9qdui513q2tqt29ffcjeaf29sam1t10o.apps.googleusercontent.com',
+      'scope': scope,
+      'discoveryDocs': ['https://www.googleapis.com/discovery/v1/apis/fusiontables/v2/rest']
+  }).then(function () {
+      GoogleAuth = gapi.auth2.getAuthInstance();
+
+      // Listen for sign-in state changes.
+      GoogleAuth.isSignedIn.listen(updateSigninStatus);
+
+      // Handle initial sign-in state. (Determine if user is already signed in.)
+      var user = GoogleAuth.currentUser.get();
+      updateSigninStatus();
+
+      authorizeButton.click(function() { GoogleAuth.signIn(); });
+      signoutButton.click(function() { GoogleAuth.signOut(); });
+  });
+}
+
+
+</script>
+<script async defer src="https://apis.google.com/js/api.js" 
+        onload="this.onload=function(){};handleClientLoad()" 
+        onreadystatechange="if (this.readyState === 'complete') this.onload()">
+</script>
   </body>
 </html>
 
