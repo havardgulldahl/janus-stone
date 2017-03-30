@@ -3,24 +3,16 @@
   <head>
 <script src="jquery-1.8.0.js"></script>
 <script src="underscore-min.js"></script>
-<script src="fusiontables.js"></script>
 <script type="text/javascript">
 
 var scope = "https://www.googleapis.com/auth/fusiontables";
-var tableId="";
-var api_key='';
+var api_key='AIzaSyAAOVWAwNLCgLRb4Y15HOZk2FSibtZZA3M';
 
-var ft = new FusionTables({
-  key: api_key,
-  tableId: tableId,
-  columns: ["First Name", "Last Name"]
-});
-
-var tpl = _.template("<div data-rowid=<%=rowid%> >avsender: <%= Avsender %><br>melding: <%= Melding %><br>Kommentarer: <%= kommentarer %><br><b>Relevant?</b><button onclick='answer(this, true)'>Yes</button><button onclick='answer(this, false)'>No</button></div>");
-var success = function(data) {
-  console.log('success! %o', data);
+var setBoxTemplate = function(data) {
+  console.log('template! %o', data);
+  var tpl = _.template("<div data-rowid=<%=rowid%> >avsender: <%= Avsender %><br>melding: <%= Melding %><br>Kommentarer: <%= kommentarer %><br><b>Relevant?</b><button onclick='answer(this, 1)'>Yes</button><button onclick='answer(this, 0)'>No</button></div>");
   var box = document.getElementById("box");
-  var h =  _.map(data, tpl).join("<p>");
+  var h =  tpl(data);
 
   box.innerHTML = h;
 };
@@ -28,22 +20,24 @@ var error = function(error) {
   console.error(error);
 };
 
-
 var put = function(post_row_id, relevant_value) {
-  var sql="INSERT INTO "+tableId+" SET 'relevant?' = "+relevant_value+" WHERE ROWID="+post_row_id+" LIMIT 1;"
+  var tableId = $('#sortTableList').val();
+  var ql="INSERT INTO "+tableId+" SET 'relevant?' = "+relevant_value+" WHERE ROWID="+post_row_id+" LIMIT 1;"
+  gapi.client.fusiontables.query.sql({sql:ql}).then(function(result) {
+    console.log('inserted into %o = %o', post_row_id, relevant_value)
+
+
+  });
 
 };
 
 var answer = function(obj, val) {
   console.log('Got answer for %o: %o', obj.parentNode.dataset.rowid, val)
+  put(obj.parentNode.dataset.rowid, val);
   getnext();
 
 };
 
-var getnext = function() {
-  var sql="SELECT ROWID,Melding,kommentarer,Avsender,ID,'relevant?' FROM "+tableId+" WHERE 'relevant?'='' LIMIT 1;"
-  ft.query(success, error, sql);
-};
 
 </script>
   </head>
@@ -53,12 +47,57 @@ var getnext = function() {
     <button id="authorize-button" >Authorize</button>
     <button id="signout-button" style="display: none;">Sign Out</button>
     </div>
-    <div id="box" style="display:none; width: 1000px; height: 350px; border:3px double gray"></div>
+    <div id="sortSelection">
+        <label>Choose table <select id=sortTableList></select></label>
+        <label>Choose column <select id=sortColumnList></select></label>
+        <button id=sortNext>Get cracking :D</button>
+    </div>
+    
+    <div id="box" style="display:none; width: 1000px; height: 350px; border:3px double gray">
+    
+       
+
+    </div>
 
 <script type="text/javascript">
 var GoogleAuth; // Google Auth object.
 var signoutButton = $('#signout-button');
 var authorizeButton = $('#authorize-button');
+var contentBox = $('#box');
+var sortSelectionBox = $('#sortSelection');
+$('#sortTableList').change(function(ev, data) {
+    console.log('sortablelistchange %o', this.value);
+    gapi.client.fusiontables.column.list({tableId: this.value}).then(function(response) {
+        var collst = $('#sortColumnList');
+        collst.empty();
+        _.each(response.result.items, function(el, idx, lst) {
+            if(el.type === 'NUMBER' && el.name.slice(-1) == '?') { 
+                collst.append( $('<option/>').val(el.name).data("tableId", this.value).html(el.name) );
+            }
+        });
+
+    });
+});
+
+var getnext = function() {
+    var tbl = $('#sortTableList').val();
+    var col = $('#sortColumnList').val();
+    var s="SELECT ROWID,Melding,kommentarer,Avsender,ID,'relevant?' FROM "+tbl+" WHERE 'relevant?'='' LIMIT 1;"
+    gapi.client.fusiontables.query.sqlGet({sql:s}).then( function(response) {
+        console.log('getnxet: %o', response);
+        var obj = new Object();
+        var cols = response.result.columns;
+        for(var i = 0; i<col.length; i++) {
+            obj[cols[i]] = response.result.rows[0][i];
+        }
+        
+        setBoxTemplate(obj);
+
+    });
+
+};
+$('#sortNext').click(getnext());
+
 
   function handleClientLoad() {
     // Load the API's client and auth2 modules.
@@ -72,9 +111,21 @@ var authorizeButton = $('#authorize-button');
     if (isAuthorized) {
       signoutButton.show();
       authorizeButton.hide();
+      contentBox.show();
+      sortSelectionBox.show();
+      gapi.client.fusiontables.table.list().then( function(response) {
+        console.log('list %o', response);
+        var l = $('#sortTableList');
+        _.each(response.result.items, function(el, idx, lst) {
+            l.append($('<option/>').val(el.tableId).html(el.name));
+        });
+
+     }, error);
     } else {
       signoutButton.hide();
       authorizeButton.show();
+      contentBox.hide();
+      sortSelectionBox.hide();
     }
   }
 
