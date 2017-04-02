@@ -8,7 +8,7 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 from clint.textui import colored, puts, indent
 
-from . import JanusSource
+from . import JanusSource, JanusPost
 
 class JanusFB(JanusSource):
 
@@ -50,7 +50,7 @@ class JanusFB(JanusSource):
                 # Perform some action on each post in the collection we receive from
                 # Facebook.
                 for post in self.feed['data']:
-                    yield post
+                    yield JanusPost(post)
                 # Attempt to make a request to the next page of data, if it exists.
                 self.feed = requests.get(self.feed['paging']['next']).json()
             except KeyError:
@@ -75,4 +75,4 @@ class JanusFBCached(JanusSource):
         return '@{} (CACHED)'.format(self.pagename)
 
     def __iter__(self):
-        yield from self.cachepath.glob('*.json')
+        yield from [JanusPost(p) for p in self.cachepath.glob('*.json')]

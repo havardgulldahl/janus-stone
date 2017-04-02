@@ -16,9 +16,11 @@ import dateutil
 
 import console
 
+from januslib import JanusPost
 from januslib.fb import JanusFB, JanusFBCached
 from januslib.fusiontables import JanusFusiontablesSink
 from januslib.filesinks import JanusFileSink, JanusCSVSink
+from januslib.stats import JanusStatsSink
 
 JANUS_CACHEDIR='./data'
 
@@ -145,21 +147,21 @@ class Janus:
         return '\n'.join( [ '{}\t:\t\t{}'.format(sink, sink.__doc__) for sink in self.enabledsinks ] )
 
     def command_pull_posts(self):
-        'Pull posts from current FB Page, respecting Until and Since if they are set'
+        'Pull posts from current FB Page (cache or online), respecting Until and Since if they are set'
         # cache receivers
         i = 0
         if len(self.enabledsinks) == 0: # oh oh, no sinks set to receive
             puts(colored.red('No sinks enabled. Add one and try again.'))
-            puts(colored.magenta(' ( use `list_sinks` to show all possible sinks ) '))
+            puts(colored.magenta(' ( use `all_sinks` to show all possible sinks ) '))
             return False
         for post in self.fb: # iterate through feed
-            puts(colored.blue('Handling post # {} @ {}'.format(post['id'], fusionify_timestamp(post['created_time'])), self.output))
+            puts(colored.blue('Handling post # {} @ {}'.format(post.id, post.datetime_created.isoformat()), self.output))
             for sink in self.enabledsinks:
                 sink.push(post)
             i = i+1
         for sink in self.enabledsinks:
             sink.finished() # let sinks clean up and empty their queues
-        puts(colored.blue('Finished pulling {} posts from Facebook page {}'.format(i, self.fbpage), self.output))
+        puts(colored.blue('Finished pulling {} posts from {}'.format(i, self.fb), self.output))
 
     def command_update_fusiontable(self):
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
@@ -170,6 +172,10 @@ class Janus:
             path = JANUS_CACHEDIR
         self.cachepath = '{}/{}'.format(path, self.fbpage)
         return JanusFileSink(self.cachepath, self.output)
+
+    def _outsink__date_count(self):
+        'Create a table of posts created per date (looking at `created_date`)'
+        return JanusStatsSink('date_count', self.output)
 
     def count_cached_files(self):
         logging.debug('count cache: %r', self.cachepath)
@@ -195,6 +201,7 @@ class Janus:
     def command_fb_authenticate(self):
         'Start procedure to authenticate to facebook.'
         self.fb.authenticate() 
+
 
         
 if __name__ == '__main__':
