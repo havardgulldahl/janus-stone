@@ -6,6 +6,7 @@ from datetime import datetime
 import tempfile
 
 from clint.textui import colored, puts, indent
+from sortedcontainers import SortedDict # pip install sortedcontainers
 from . import JanusSink
 
 class JanusStatsSink(JanusSink):
@@ -13,7 +14,7 @@ class JanusStatsSink(JanusSink):
     def __init__(self, stat_type, output):
         super().__init__(output)
         self.stat_type = stat_type
-        self.created_dates = {}
+        self.created_dates = SortedDict()
         self.counted = -1
 
     def __str__(self):
