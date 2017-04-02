@@ -1,8 +1,9 @@
 #-*- enc: utf-8
 
+import os
+from pathlib import Path
 import facebook
 import requests
-import os
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 from clint.textui import colored, puts, indent
@@ -22,7 +23,7 @@ class JanusFB(JanusSource):
 
     def __str__(self):
         'return pretty name'
-        return '<Facebook(<-{})>'.format(self.pagename)
+        return '@{} (online)'.format(self.pagename)
 
     def authenticate(self):
         permissions = ['public_profile',]
@@ -57,3 +58,21 @@ class JanusFB(JanusSource):
                 # loop and end the script.
                 raise StopIteration
 
+class JanusFBCached(JanusSource):
+    'Reading Facebook posts from disk cache'
+
+    def __init__(self, facebookpage, datapath, output):
+        super().__init__(output)
+        self.graph = None
+        self.pagename = facebookpage
+        self.cachepath = Path(datapath, facebookpage)
+
+        if not self.cachepath.is_dir():
+            puts(colored.red('Error! No existing cache found in {!r}'.format(datapath)))
+
+    def __str__(self):
+        'return pretty name'
+        return '@{} (CACHED)'.format(self.pagename)
+
+    def __iter__(self):
+        yield from self.cachepath.glob('*.json')

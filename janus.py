@@ -16,9 +16,11 @@ import dateutil
 
 import console
 
-from januslib.fb import JanusFB
+from januslib.fb import JanusFB, JanusFBCached
 from januslib.fusiontables import JanusFusiontablesSink
 from januslib.filesinks import JanusFileSink, JanusCSVSink
+
+JANUS_CACHEDIR='./data'
 
 def datestring(string):
     try:
@@ -50,6 +52,7 @@ def lvl(string):
 argp = argparse.ArgumentParser()
 argp.add_argument('--loglevel', type=lvl, default=logging.INFO, help='Set log level')
 argp.add_argument('--fbpage', help='Set Facebook page name')
+argp.add_argument('--cached', action='store_true', default=False, help='Use CACHED posts: Dont pull them from online, but from disk')
 argp.add_argument('--add_sink', action='append', nargs='*', help='Add output sink to chain')
 argp.add_argument('--since', help='Date in YYYY-MM-DD [HH:MM:SS] format')
 argp.add_argument('--until', help='Date in YYYY-MM-DD [HH:MM:SS] format')
@@ -71,7 +74,7 @@ class Janus:
         self.cachepath = None # where to store cached posts
 
     def format_prompt(self):
-        ps1 = colored.magenta('@'+self.fbpage) if self.fbpage else colored.red('FB Page unset')
+        ps1 = colored.magenta(self.fb) if self.fb else colored.red('FB Page unset')
         ps1 += ' ▶ ['
         _sinks = ['sink:{}'.format(c) for c in self.enabledsinks]
         ps1 += colored.green(', '.join(_sinks)) if _sinks else colored.red('No sinks set')
@@ -95,13 +98,21 @@ class Janus:
             self.fb.set_until(self.until)
 
     def command_set_page(self, pagename):
-        'Set the Facebook Page that we are pulling data from. Mandatory'
+        'Set the Facebook Page that we are pulling data from.'
         self.fbpage = pagename
         self.fb = JanusFB(pagename, self.output)
         if self.since is not None:
             self.fb.set_since(self.since)
         if self.until is not None:
             self.fb.set_until(self.until)
+        self.format_prompt()
+
+    def command_set_page_cached(self, pagename, cachedir=None):
+        'Set the Facebook Page name that we will be pulling CACHED posts from.'
+        self.fbpage = pagename
+        if cachedir is None:
+            cachedir = JANUS_CACHEDIR
+        self.fb = JanusFBCached(pagename, cachedir, self.output)
         self.format_prompt()
 
     def command_add_outsink(self, sinkname, *args):
@@ -154,9 +165,9 @@ class Janus:
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
 
     def _outsink__file(self, path=None):
-        'Store post JSON to a file on disk. Args: path (optional, defaults to ./data)'
+        'Store post JSON to a file on disk. Args: path (optional, defaults to JANUS_CACHEDIR)'
         if not path:
-            path = './data'
+            path = JANUS_CACHEDIR
         self.cachepath = '{}/{}'.format(path, self.fbpage)
         return JanusFileSink(self.cachepath, self.output)
 
@@ -190,7 +201,10 @@ if __name__ == '__main__':
     import sys
     j = Janus()
     if args.fbpage is not None:
-        j.command_set_page(args.fbpage)
+        if not args.cached:
+            j.command_set_page(args.fbpage)
+        else:
+            j.command_set_page_cached(args.fbpage)
     logging.debug('sinks: %r', args.add_sink)
     if args.add_sink is not None:
         for s in args.add_sink:
@@ -204,6 +218,7 @@ if __name__ == '__main__':
 
     runner = console.CommandRunner()
     runner.command('set_page', j.command_set_page)
+    runner.command('set_cached_page', j.command_set_page_cached)
     runner.command('set_since', j.command_set_since)
     runner.command('set_until', j.command_set_until)
     runner.command('add_sink', j.command_add_outsink)
