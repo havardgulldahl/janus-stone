@@ -12,6 +12,7 @@ import logging
 from datetime import datetime
 from clint.textui import colored, puts, indent
 import html
+import dateutil
 
 import console
 
@@ -33,6 +34,12 @@ def datestring(string):
 
 def unixtimetoiso8601(timestamp):
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
+def fusionify_timestamp(datestring):
+    '''2016-12-31T21:56:10+0000' -> 2016-12-31 21:56:10'''
+    yourdate = dateutil.parser.parse(datestring)
+    return yourdate.strftime('%Y-%m-%d %H:%M:%S')
+
 
 def lvl(string):
     try:
@@ -135,7 +142,7 @@ class Janus:
             puts(colored.magenta(' ( use `list_sinks` to show all possible sinks ) '))
             return False
         for post in self.fb: # iterate through feed
-            puts(colored.blue('Handling post # {}'.format(post['ID']), self.output))
+            puts(colored.blue('Handling post # {} @ {}'.format(post['id'], fusionify_timestamp(post['created_time'])), self.output))
             for sink in self.enabledsinks:
                 sink.push(post)
             i = i+1
@@ -174,6 +181,10 @@ class Janus:
         'Set up logging to file. Everything that goes to console also goes there'
         pass # TODO IMPLEMENT
 
+    def command_fb_authenticate(self):
+        'Start procedure to authenticate to facebook.'
+        self.fb.authenticate() 
+
         
 if __name__ == '__main__':
     import sys
@@ -200,6 +211,7 @@ if __name__ == '__main__':
     runner.command('enabled_sinks', j.command_list_enabled_outsinks)
     runner.command('disable_sink', j.command_disable_outsink)
     runner.command('pull', j.command_pull_posts)
+    runner.command('fb_auth', j.command_fb_authenticate)
     ex = console.Console(runner).run_in_main()
     j.format_prompt()
     sys.exit(ex)

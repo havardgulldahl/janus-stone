@@ -25,7 +25,10 @@ class JanusFB(JanusSource):
         return '<Facebook(<-{})>'.format(self.pagename)
 
     def authenticate(self):
-        raise NotImplementedError
+        permissions = ['public_profile',]
+        canvas_url = 'http://gulldahlpc.local:8000/test'
+        fb_login_url = self.graph.auth_url(os.environ.get('FB_APP_ID'), canvas_url, permissios)
+        puts(colored.blue('Go to the following url in a browser to complete login: {}'.format(fb_login_url), self.output))
 
     def set_since(self, timestamp):
         self.params['since'] = timestamp
