@@ -1,3 +1,6 @@
+
+from . import JanusSink
+
 class JanusFileSink(JanusSink):
     
     def __init__(self, cachepath, output):
@@ -53,7 +56,7 @@ class JanusCSVSink(JanusSink):
 
         fields = [
              post['id'],
-             post['created_time']),
+             post['created_time'],
              name,
              likes,
              message.replace('\n', ' '),
@@ -67,7 +70,7 @@ class JanusCSVSink(JanusSink):
 
     def push(self, post):
         dirn = os.path.dirname(self.filename)
-        if not os.path.exists(dirn)
+        if not os.path.exists(dirn):
             os.makedirs(dirn)
         if not os.path.exists(self.filename):
             pass

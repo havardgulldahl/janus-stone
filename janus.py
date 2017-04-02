@@ -15,7 +15,6 @@ import html
 
 import console
 
-from januslib import JanusFileSink
 from januslib.fb import JanusFB
 from januslib.fusiontables import JanusFusiontablesSink
 from januslib.filesinks import JanusFileSink, JanusCSVSink
@@ -131,14 +130,18 @@ class Janus:
         'Pull posts from current FB Page, respecting Until and Since if they are set'
         # cache receivers
         i = 0
+        if len(self.enabledsinks) == 0: # oh oh, no sinks set to receive
+            puts(colored.red('No sinks enabled. Add one and try again.'))
+            puts(colored.magenta(' ( use `list_sinks` to show all possible sinks ) '))
+            return False
         for post in self.fb: # iterate through feed
-            puts(colored.blue('Handling post # {}'.format(post['ID']), self.output)
+            puts(colored.blue('Handling post # {}'.format(post['ID']), self.output))
             for sink in self.enabledsinks:
                 sink.push(post)
             i = i+1
         for sink in self.enabledsinks:
             sink.finished() # let sinks clean up and empty their queues
-        puts(colored.blue('Finished pulling {} posts from Facebook page {}'.format(i, self.fbpage), self.output)
+        puts(colored.blue('Finished pulling {} posts from Facebook page {}'.format(i, self.fbpage), self.output))
 
     def command_update_fusiontable(self):
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
