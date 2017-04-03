@@ -38,7 +38,7 @@ var error = function(error) {
         <label>Choose table <select id=sortTableList></select></label>
         <label>Choose column <select id=sortColumnList></select></label>
         <button id=sortNext>Get cracking :D</button>
-        <img src=ring.gif id=loading style="width: 20px; height: 20px; display: none">
+        <img src=ring.gif name=loading style="width: 20px; height: 20px; display: none">
     </div>
     
     <div id="box" style="display:none; width: 1000px; height: 350px; border:3px double gray">
@@ -52,7 +52,7 @@ var contentBox = $('#box');
 var sortSelectionBox = $('#sortSelection');
 $('#sortTableList').change(function(ev, data) {
     console.log('sortablelistchange %o', this.value);
-    $('#loading').show();
+    $('[name=loading]').show();
     gapi.client.fusiontables.column.list({tableId: this.value}).then(function(response) {
         var collst = $('#sortColumnList');
         collst.empty();
@@ -61,28 +61,30 @@ $('#sortTableList').change(function(ev, data) {
                 collst.append( $('<option/>').val(el.name).data("tableId", this.value).html(el.name) );
             }
         });
-        $('#loading').hide();
+        $('[name=loading]').hide();
 
     });
 });
 
-var put = function(post_row_id, relevant_value, successfunction) {
+var put = function(post_row_id, relevant_value, btnobj, successfunction) {
   var tableId = $('#sortTableList').val();
   var ql="UPDATE "+tableId+" SET 'relevant?' = '"+relevant_value+"' WHERE ROWID = '"+post_row_id+"'";
   console.log("put %o", ql);
   contentBox.css('color', '#ccc');
-  $('#loading').show();
+  //$('[name=loading]').show();
+  console.log('put butn: %o', btnobj);
+  var loading = $('[name=loading]').clone().appendTo(btnobj).show();
   gapi.client.fusiontables.query.sql({sql:ql}).then(function(result) {
     console.log('inserted into %o = %o', post_row_id, relevant_value)
     successfunction();
-    $('#loading').hide();
+    loading.remove();
     contentBox.css('color', '#000');
   });
 };
 
 var answer = function(obj, val) {
   console.log('Got answer for %o: %o', obj.parentNode.dataset.rowid, val)
-  put(obj.parentNode.dataset.rowid, val, getnext);
+  put(obj.parentNode.dataset.rowid, val, obj, getnext);
 };
 
 
@@ -91,7 +93,7 @@ function getnext() {
     var col = $('#sortColumnList').val();
     var s="SELECT ROWID,Melding,kommentarer,Avsender,ID,'relevant?' FROM "+tbl+" WHERE 'relevant?'='' LIMIT 1;"
     if(gapi.client===undefined) return;
-    $('#loading').show();
+    $('[name=loading]').show();
     gapi.client.fusiontables.query.sqlGet({sql:s}).then( function(response) {
         console.log('getnxet: %o', response);
         var obj = new Object();
@@ -100,7 +102,7 @@ function getnext() {
             obj[cols[i]] = response.result.rows[0][i];
         }
         setBoxTemplate(obj);
-        $('#loading').hide();
+        $('[name=loading]').hide();
     });
 };
 $('#sortNext').click(getnext);
