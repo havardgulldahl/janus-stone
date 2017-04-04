@@ -8,23 +8,26 @@
 </style>
 <script src="jquery-3.2.0.min.js"></script>
 <script src="underscore-min.js"></script>
+<script src="vue.js"></script>
 <script src="https://apis.google.com/js/api.js" ></script>
 <script type="text/javascript">
 
 var scope = "https://www.googleapis.com/auth/fusiontables";
 var api_key='AIzaSyAAOVWAwNLCgLRb4Y15HOZk2FSibtZZA3M';
 
-var setBoxTemplate = function(data) {
-  console.log('template! %o', data);
-  var tpl = _.template("<div class=post data-rowid=<%=rowid%> >avsender: <%= Avsender %><br>melding: <%= Melding %><br>Kommentarer: <%= kommentarer %><br><b>Relevant?</b><button onclick='answer(this, 1)'>Yes</button><button onclick='answer(this, 0)'>No</button></div>");
-  var box = document.getElementById("box");
-  var h =  tpl(data);
-
-  box.innerHTML = h;
-};
 var error = function(error) {
   console.error(error);
 };
+
+var vm = new Vue({
+  data: {
+    a: 1
+  },
+  created: function () {
+    // `this` points to the vm instance
+    console.log('a is: ' + this.a)
+  }
+})
 
 </script>
   </head>
@@ -42,7 +45,36 @@ var error = function(error) {
     </div>
     
     <div id="box" style="display:none; width: 1000px; height: 350px; border:3px double gray">
+        <div class=post> 
+            <dl>
+                <dt>Post</dt><dd>Den {{post.dato}} av <b>{{post.avsender}}</b> (+{{post.likes}})</dd>
+                <dt>Tekst</dt><dd>{{post.melding}}</dd>
+                <dt v-if=post.link>Lenke</dt><dd v-if=post.link><a v-bind:href=post.link target=_blank>{{post.link}}</a></dd>
+                <dt v-if=post.media>Bilde/Video</dt><dd v-if=post.media><img v-bind:src=post.media ></dd>
+                <dt>Kommentarer</dt><dd v-html=post.kommentarer></dd>
+                <dt>Relevant?</dt>
+                <dd>
+                    <button v-bind:data-rowid="post.rowid" onclick='answer(this, 1)'>Yes</button>
+                    <button v-bind:data-rowid="post.rowid" onclick='answer(this, 0)'>No</button>
+                </dd>
+            </dl>
+        </div>
     </div>
+</div>
+    <script>
+    var boxapp = new Vue({
+        el: '#box',
+        data: { post: {avsender:'Avsender', 
+                       melding: 'test', 
+                       kommentarer: '<ul><li>Ko</li></ul>',
+                       link: '',
+                       media: '',
+                       likes: 0,
+                       dato: 'xx. november',
+                       rowid:'99' } }
+    });
+
+</script>
 
 <script type="text/javascript">
 var GoogleAuth; // Google Auth object.
@@ -50,6 +82,7 @@ var signoutButton = $('#signout-button');
 var authorizeButton = $('#authorize-button');
 var contentBox = $('#box');
 var sortSelectionBox = $('#sortSelection');
+
 $('#sortTableList').change(function(ev, data) {
     console.log('sortablelistchange %o', this.value);
     $('[name=loading]').show();
@@ -68,7 +101,7 @@ $('#sortTableList').change(function(ev, data) {
 
 var put = function(post_row_id, relevant_value, btnobj, successfunction) {
   var tableId = $('#sortTableList').val();
-  var ql="UPDATE "+tableId+" SET 'relevant?' = '"+relevant_value+"' WHERE ROWID = '"+post_row_id+"'";
+  var ql="UPDATE "+tableId+" SET 'Relevant?' = '"+relevant_value+"' WHERE ROWID = '"+post_row_id+"'";
   console.log("put %o", ql);
   contentBox.css('color', '#ccc');
   //$('[name=loading]').show();
@@ -83,25 +116,26 @@ var put = function(post_row_id, relevant_value, btnobj, successfunction) {
 };
 
 var answer = function(obj, val) {
-  console.log('Got answer for %o: %o', obj.parentNode.dataset.rowid, val)
-  put(obj.parentNode.dataset.rowid, val, obj, getnext);
+  var rowid=obj.dataset.rowid;
+  console.log('Got answer for %o: %o', rowid, val);
+  put(rowid, val, obj, getnext);
 };
 
 
 function getnext() {
     var tbl = $('#sortTableList').val();
     var col = $('#sortColumnList').val();
-    var s="SELECT ROWID,Melding,kommentarer,Avsender,ID,'relevant?' FROM "+tbl+" WHERE 'relevant?'='' LIMIT 1;"
+    var s="SELECT ROWID,Melding,Kommentarer,Avsender,ID,'Relevant?',Link,Media,'Kundeforhold?',Delinger,Dato FROM "+tbl+" WHERE 'Relevant?'='' AND 'Kundeforhold?'='' LIMIT 1;"
     if(gapi.client===undefined) return;
     $('[name=loading]').show();
     gapi.client.fusiontables.query.sqlGet({sql:s}).then( function(response) {
         console.log('getnxet: %o', response);
         var obj = new Object();
         var cols = response.result.columns;
-        for(var i = 0; i<col.length; i++) {
-            obj[cols[i]] = response.result.rows[0][i];
+        for(var i = 0; i<cols.length; i++) {
+            obj[cols[i].toLocaleLowerCase()] = response.result.rows[0][i];
         }
-        setBoxTemplate(obj);
+        boxapp.post = obj;
         $('[name=loading]').hide();
     });
 };
