@@ -2,10 +2,9 @@
 <html>
   <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style type="text/css">
-    .post button { width: 90px; height: 40px; }
-
-</style>
+<link rel="stylesheet" href="./mdl/material.min.css">
+<script src="./mdl/material.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
 <script src="jquery-3.2.0.min.js"></script>
 <script src="vue.js"></script>
 <script src="https://apis.google.com/js/api.js" ></script>
@@ -18,28 +17,18 @@ var error = function(error) {
   console.error(error);
 };
 
-var vm = new Vue({
-  data: {
-    a: 1
-  },
-  created: function () {
-    // `this` points to the vm instance
-    console.log('a is: ' + this.a)
-  }
-})
-
 </script>
   </head>
   <body onload=handleClientLoad()>
     <div id="auth">
     <!--Add buttons to initiate auth sequence and sign out-->
-    <button id="authorize-button" >Authorize</button>
-    <button id="signout-button" style="display: none;">Sign Out</button>
+    <button id="authorize-button" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent" >Authorize</button>
+    <button id="signout-button" style="display: none;" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent">Sign Out</button>
     </div>
     <div id="sortSelection">
         <label>Choose table <select id=sortTableList></select></label>
         <label>Choose column <select id=sortColumnList></select></label>
-        <button id=sortNext>Get cracking :D</button>
+        <button id=sortNext class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent">Get cracking :D</button>
         <img src=ring.gif name=loading style="width: 20px; height: 20px; display: none">
     </div>
     
@@ -51,11 +40,18 @@ var vm = new Vue({
                 <dt v-if=post.link>Lenke</dt><dd v-if=post.link><a v-bind:href=post.link target=_blank>{{post.link}}</a></dd>
                 <dt v-if=post.media>Bilde/Video</dt><dd v-if=post.media><img v-bind:src=post.media ></dd>
                 <dt>Kommentarer</dt><dd v-html=post.kommentarer></dd>
-                <dt>Relevant?</dt>
+                <dt>Kategorisering</dt>
                 <dd>
-                    <button v-bind:data-rowid="post.rowid" onclick='answer(this, 1)'>Yes</button>
-                    <button v-bind:data-rowid="post.rowid" onclick='answer(this, 0)'>No</button>
+                    <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="kundeforhold-1">
+                    <input type="checkbox" id="kundeforhold-1" class="mdl-checkbox__input" v-model=post.kundeforhold v-bind:true-value=1 v-bind:false-value=0>
+                    <span class="mdl-checkbox__label">Kundeforhold?</span>
+                    </label>
+                    <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="relevant-1">
+                    <input type="checkbox" id="relevant-1" class="mdl-checkbox__input" v-model=post.relevant v-bind:true-value=1 v-bind:false-value=0>
+                    <span class="mdl-checkbox__label">relevant?</span>
+                    </label>
                 </dd>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent" onclick=answer(this)>Next</button>
             </dl>
         </div>
     </div>
@@ -70,6 +66,8 @@ var vm = new Vue({
                        media: '',
                        likes: 0,
                        dato: 'xx. november',
+                       kundeforhold: 0,
+                       relevant: 0,
                        rowid:'99' } }
     });
 
@@ -99,28 +97,20 @@ $('#sortTableList').change(function(ev, data) {
     });
 });
 
-var put = function(post_row_id, relevant_value, btnobj, successfunction) {
+function answer (btnobj) {
   var tableId = $('#sortTableList').val();
-  var ql="UPDATE "+tableId+" SET 'Relevant?' = '"+relevant_value+"' WHERE ROWID = '"+post_row_id+"'";
+  var ql="UPDATE "+tableId+" SET 'Relevant?'='"+boxapp.post.relevant+"', 'Kundeforhold?'='"+boxapp.post.kundeforhold+"' WHERE ROWID = '"+boxapp.post.rowid+"'";
   console.log("put %o", ql);
   contentBox.css('color', '#ccc');
-  //$('[name=loading]').show();
   console.log('put butn: %o', btnobj);
   var loading = $('[name=loading]').clone().appendTo(btnobj).show();
   gapi.client.fusiontables.query.sql({sql:ql}).then(function(result) {
-    console.log('inserted into %o = %o', post_row_id, relevant_value)
-    successfunction();
+    console.log('inserted into %o ', boxapp.post.rowid);
+    getnext();
     loading.remove();
     contentBox.css('color', '#000');
   });
 };
-
-var answer = function(obj, val) {
-  var rowid=obj.dataset.rowid;
-  console.log('Got answer for %o: %o', rowid, val);
-  put(rowid, val, obj, getnext);
-};
-
 
 function getnext() {
     var tbl = $('#sortTableList').val();
@@ -133,7 +123,8 @@ function getnext() {
         var obj = new Object();
         var cols = response.result.columns;
         for(var i = 0; i<cols.length; i++) {
-            obj[cols[i].toLocaleLowerCase()] = response.result.rows[0][i];
+            var colname = cols[i].toLocaleLowerCase().replace('?','');
+            obj[colname] = response.result.rows[0][i];
         }
         boxapp.post = obj;
         $('[name=loading]').hide();
@@ -159,6 +150,7 @@ $('#sortNext').click(getnext);
       gapi.client.fusiontables.table.list().then( function(response) {
         console.log('list %o', response);
         var l = $('#sortTableList');
+        l.append($('<option disabled value="">Please select one</option>'));
         for(var idx=0; idx<response.result.items.length; idx++) {
             var el = response.result.items[idx];
             l.append($('<option/>').val(el.tableId).html(el.name));
