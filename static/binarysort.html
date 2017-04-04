@@ -7,7 +7,6 @@
 
 </style>
 <script src="jquery-3.2.0.min.js"></script>
-<script src="underscore-min.js"></script>
 <script src="vue.js"></script>
 <script src="https://apis.google.com/js/api.js" ></script>
 <script type="text/javascript">
@@ -89,11 +88,12 @@ $('#sortTableList').change(function(ev, data) {
     gapi.client.fusiontables.column.list({tableId: this.value}).then(function(response) {
         var collst = $('#sortColumnList');
         collst.empty();
-        _.each(response.result.items, function(el, idx, lst) {
+        for(var idx=0; idx<response.result.items.length; idx++) {
+            var el = response.result.items[idx];
             if(el.type === 'NUMBER' && el.name.slice(-1) == '?') { 
                 collst.append( $('<option/>').val(el.name).data("tableId", this.value).html(el.name) );
             }
-        });
+        }
         $('[name=loading]').hide();
 
     });
@@ -159,9 +159,10 @@ $('#sortNext').click(getnext);
       gapi.client.fusiontables.table.list().then( function(response) {
         console.log('list %o', response);
         var l = $('#sortTableList');
-        _.each(response.result.items, function(el, idx, lst) {
+        for(var idx=0; idx<response.result.items.length; idx++) {
+            var el = response.result.items[idx];
             l.append($('<option/>').val(el.tableId).html(el.name));
-        });
+        }
 
      }, error);
     } else {
