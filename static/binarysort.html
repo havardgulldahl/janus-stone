@@ -27,7 +27,6 @@ var error = function(error) {
     </div>
     <div id="sortSelection">
         <label>Choose table <select id=sortTableList></select></label>
-        <label>Choose column <select id=sortColumnList></select></label>
         <button id=sortNext class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent">Get cracking :D</button>
         <img src=ring.gif name=loading style="width: 20px; height: 20px; display: none">
     </div>
@@ -42,13 +41,24 @@ var error = function(error) {
                 <dt>Kommentarer</dt><dd v-html=post.kommentarer></dd>
                 <dt>Kategorisering</dt>
                 <dd>
-                    <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="kundeforhold-1">
-                    <input type="checkbox" id="kundeforhold-1" class="mdl-checkbox__input" v-model=post.kundeforhold>
-                    <span class="mdl-checkbox__label">Kundeforhold?</span>
+                    <b>Kundeforhold?</b>
+                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="kundeforhold-1">
+                    <input type="radio" id="kundeforhold-1" class="mdl-radio__button" name="kundeforhold" value="0" v-model=post.kundeforhold>
+                    <span class="mdl-radio__label">Nei</span>
                     </label>
-                    <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="relevant-1">
-                    <input type="checkbox" id="relevant-1" class="mdl-checkbox__input" v-model=post.relevant>
-                    <span class="mdl-checkbox__label">relevant?</span>
+                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="kundeforhold-2">
+                    <input type="radio" id="kundeforhold-2" class="mdl-radio__button" name="kundeforhold" value="1" v-model=post.kundeforhold>
+                    <span class="mdl-radio__label">Ja</span>
+                    </label>
+                    <br>
+                    <b>Relevant?</b>
+                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="relevant-1">
+                    <input type="radio" id="relevant-1" class="mdl-radio__button" name="relevant" value="0" v-model=post.relevant>
+                    <span class="mdl-radio__label">Nei</span>
+                    </label>
+                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="relevant-2">
+                    <input type="radio" id="relevant-2" class="mdl-radio__button" name="relevant" value="1" v-model=post.relevant>
+                    <span class="mdl-radio__label">Ja</span>
                     </label>
                 </dd>
                 <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent" onclick=answer(this)>Next</button>
@@ -66,21 +76,21 @@ var error = function(error) {
                        media: '',
                        likes: 0,
                        dato: 'xx. november',
-                       kundeforhold: false,
-                       relevant: false,
+                       kundeforhold: 0,
+                       relevant: 0,
                        rowid:'99' } 
         },
-        computed: {
+        methods: {
             // computed getters to streamline properties
             bool_kundeforhold: function() {
-                if(this.post.kundeforhold==='' || this.post.kundeforhold==='0' || this.post.kundeforhold===0 || this.post.kundeforhold==="NaN") {
+                if(parseInt(this.post.kundeforhold) === 0 || isNaN(parseInt(this.post.kundeforhold))) {
                     return 0;
                 } else {
                     return 1;
                 }
             },
             bool_relevant: function() {
-                if(this.post.relevant==='' || this.post.relevant==='0' || this.post.relevant===0 || this.post.relevant==="NaN") {
+                if(parseInt(this.post.relevant) === 0 || isNaN(parseInt(this.post.relevant))) {
                     return 0;
                 } else {
                     return 1;
@@ -100,7 +110,7 @@ var authorizeButton = $('#authorize-button');
 var contentBox = $('#box');
 var sortSelectionBox = $('#sortSelection');
 
-$('#sortTableList').change(function(ev, data) {
+$('#xxxxsortTableList').change(function(ev, data) {
     $('[name=loading]').show();
     gapi.client.fusiontables.column.list({tableId: this.value}).then(function(response) {
         var collst = $('#sortColumnList');
@@ -119,7 +129,7 @@ $('#sortTableList').change(function(ev, data) {
 
 function answer (btnobj) {
   var tableId = $('#sortTableList').val();
-  var ql="UPDATE "+tableId+" SET 'Relevant?'='"+boxapp.post.relevant+"', 'Kundeforhold?'='"+boxapp.post.kundeforhold+"' WHERE ROWID = '"+boxapp.post.rowid+"'";
+  var ql="UPDATE "+tableId+" SET 'Relevant?'='"+boxapp.bool_relevant()+"', 'Kundeforhold?'='"+boxapp.bool_kundeforhold()+"' WHERE ROWID = '"+boxapp.post.rowid+"'";
   console.log("put %o", ql);
   contentBox.css('color', '#ccc');
   console.log('put butn: %o', btnobj);
@@ -160,10 +170,10 @@ function setpost(postobj) {
     //get the new post from REST and add it to our view
     boxapp.post = postobj;
     // code around bug where MDL doesnt update the visual state to the model value
-    var relevant = document.getElementById('relevant-1').parentElement.MaterialCheckBox;
-    boxapp.post.relevant ? relevant.check() : relevant.uncheck();
-    var kundeforhold = document.getElementById('kundeforhold-1').parentElement.MaterialCheckBox;
-    boxapp.post.kundeforhold ? kundeforhold.check() : kundeforhold.uncheck();
+    //var relevant = document.getElementById('relevant-1').parentElement.MaterialCheckBox;
+    //boxapp.post.relevant ? relevant.check() : relevant.uncheck();
+    ////var kundeforhold = document.getElementById('kundeforhold-1').parentElement.MaterialCheckBox;
+    //boxapp.post.kundeforhold ? kundeforhold.check() : kundeforhold.uncheck();
 }
 $('#sortNext').click(getnext);
 
