@@ -35,29 +35,29 @@ var error = function(error) {
         <div class=post> 
             <dl>
                 <dt>Post</dt><dd>Den {{post.dato}} av <b>{{post.avsender}}</b> (+{{post.likes}})</dd>
-                <dt>Tekst</dt><dd>{{post.melding}}</dd>
+                <dt>Tekst</dt><dd v-html=post.melding></dd>
                 <dt v-if=post.link>Lenke</dt><dd v-if=post.link><a v-bind:href=post.link target=_blank>{{post.link}}</a></dd>
                 <dt v-if=post.media>Bilde/Video</dt><dd v-if=post.media><img v-bind:src=post.media ></dd>
                 <dt>Kommentarer</dt><dd v-html=post.kommentarer></dd>
                 <dt>Kategorisering</dt>
                 <dd>
                     <b>Kundeforhold?</b>
-                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="kundeforhold-1">
-                    <input type="radio" id="kundeforhold-1" class="mdl-radio__button" name="kundeforhold" value="0" v-model=post.kundeforhold>
+                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="kundeforhold-0">
+                    <input type="radio" id="kundeforhold-0" class="mdl-radio__button" name="kundeforhold" value="0" v-model=post.kundeforhold>
                     <span class="mdl-radio__label">Nei</span>
                     </label>
-                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="kundeforhold-2">
-                    <input type="radio" id="kundeforhold-2" class="mdl-radio__button" name="kundeforhold" value="1" v-model=post.kundeforhold>
+                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="kundeforhold-1">
+                    <input type="radio" id="kundeforhold-1" class="mdl-radio__button" name="kundeforhold" value="1" v-model=post.kundeforhold>
                     <span class="mdl-radio__label">Ja</span>
                     </label>
                     <br>
                     <b>Relevant?</b>
-                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="relevant-1">
-                    <input type="radio" id="relevant-1" class="mdl-radio__button" name="relevant" value="0" v-model=post.relevant>
+                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="relevant-0">
+                    <input type="radio" id="relevant-0" class="mdl-radio__button" name="relevant" value="0" v-model=post.relevant>
                     <span class="mdl-radio__label">Nei</span>
                     </label>
-                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="relevant-2">
-                    <input type="radio" id="relevant-2" class="mdl-radio__button" name="relevant" value="1" v-model=post.relevant>
+                    <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="relevant-1">
+                    <input type="radio" id="relevant-1" class="mdl-radio__button" name="relevant" value="1" v-model=post.relevant>
                     <span class="mdl-radio__label">Ja</span>
                     </label>
                 </dd>
@@ -127,8 +127,18 @@ $('#xxxxsortTableList').change(function(ev, data) {
     });
 });
 
+function mdlRadioChecked(id) {
+    // returns boolean true or false, whether mdl radio gear is checked
+    var mdlCheckedClassname = "is-checked";
+    var el  = document.getElementById(id).parentElement.MaterialRadio;
+    return el.element_.classList.contains(mdlCheckedClassname);
+}
+
 function answer (btnobj) {
   var tableId = $('#sortTableList').val();
+  // read binary state from mdl gear
+  boxapp.post.kundeforhold = mdlRadioChecked('kundeforhold-1') ? 1 : 0;
+  boxapp.post.relevant = mdlRadioChecked('relevant-1') ? 1 : 0;
   var ql="UPDATE "+tableId+" SET 'Relevant?'='"+boxapp.bool_relevant()+"', 'Kundeforhold?'='"+boxapp.bool_kundeforhold()+"' WHERE ROWID = '"+boxapp.post.rowid+"'";
   console.log("put %o", ql);
   contentBox.css('color', '#ccc');
@@ -156,8 +166,9 @@ function getnext() {
             var colname = cols[i].toLocaleLowerCase();
             if(colname.slice(-1) == '?') {
                 // column ends with '?', meaning it's a boolean column
+                // TODO: unhack this hack
                 colname = colname.replace('?', '');
-                obj[colname] = parseInt(response.result.rows[0][i], 10) == 1;
+                obj[colname] = parseInt(response.result.rows[0][i], 10) == 1 ? 1 : 0; 
             } else {
                 obj[colname] = response.result.rows[0][i];
             }
@@ -169,11 +180,6 @@ function getnext() {
 function setpost(postobj) {
     //get the new post from REST and add it to our view
     boxapp.post = postobj;
-    // code around bug where MDL doesnt update the visual state to the model value
-    //var relevant = document.getElementById('relevant-1').parentElement.MaterialCheckBox;
-    //boxapp.post.relevant ? relevant.check() : relevant.uncheck();
-    ////var kundeforhold = document.getElementById('kundeforhold-1').parentElement.MaterialCheckBox;
-    //boxapp.post.kundeforhold ? kundeforhold.check() : kundeforhold.uncheck();
 }
 $('#sortNext').click(getnext);
 
@@ -182,6 +188,20 @@ $('#sortNext').click(getnext);
     // Load the API's client and auth2 modules.
     // Call the initClient function after the modules load.
     gapi.load('client:auth2', initClient);
+  }
+
+  function hasBinarysortColumn(tablestruct) {
+    // return true if the struct contains one or more columns for binary classification [0,1]
+    var col;
+    for(var i=0; i<tablestruct.columns.length; i++) {
+        col = tablestruct.columns[i];
+        try {
+            if(col.type=="NUMBER" && col.columnPropertiesJson !== undefined && JSON.parse(col.columnPropertiesJson).binarysort === true) {
+                return true;
+            }
+        } catch(e) {console.log(e)}
+    }
+    return false;
   }
 
  function updateSigninStatus(isSignedIn) {
@@ -198,7 +218,9 @@ $('#sortNext').click(getnext);
         l.append($('<option disabled value="">Please select one</option>'));
         for(var idx=0; idx<response.result.items.length; idx++) {
             var el = response.result.items[idx];
-            l.append($('<option/>').val(el.tableId).html(el.name));
+            if(hasBinarysortColumn(el)) {
+                l.append($('<option/>').val(el.tableId).html(el.name));
+            }
         }
 
      }, error);
