@@ -43,11 +43,11 @@ var error = function(error) {
                 <dt>Kategorisering</dt>
                 <dd>
                     <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="kundeforhold-1">
-                    <input type="checkbox" id="kundeforhold-1" class="mdl-checkbox__input" v-model=post.kundeforhold v-bind:true-value=1 v-bind:false-value=0>
+                    <input type="checkbox" id="kundeforhold-1" class="mdl-checkbox__input" v-model=post.kundeforhold>
                     <span class="mdl-checkbox__label">Kundeforhold?</span>
                     </label>
                     <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="relevant-1">
-                    <input type="checkbox" id="relevant-1" class="mdl-checkbox__input" v-model=post.relevant v-bind:true-value=1 v-bind:false-value=0>
+                    <input type="checkbox" id="relevant-1" class="mdl-checkbox__input" v-model=post.relevant>
                     <span class="mdl-checkbox__label">relevant?</span>
                     </label>
                 </dd>
@@ -66,9 +66,29 @@ var error = function(error) {
                        media: '',
                        likes: 0,
                        dato: 'xx. november',
-                       kundeforhold: 0,
-                       relevant: 0,
-                       rowid:'99' } }
+                       kundeforhold: false,
+                       relevant: false,
+                       rowid:'99' } 
+        },
+        computed: {
+            // computed getters to streamline properties
+            bool_kundeforhold: function() {
+                if(this.post.kundeforhold==='' || this.post.kundeforhold==='0' || this.post.kundeforhold===0 || this.post.kundeforhold==="NaN") {
+                    return 0;
+                } else {
+                    return 1;
+                }
+            },
+            bool_relevant: function() {
+                if(this.post.relevant==='' || this.post.relevant==='0' || this.post.relevant===0 || this.post.relevant==="NaN") {
+                    return 0;
+                } else {
+                    return 1;
+                }
+            }
+
+        }
+
     });
 
 </script>
@@ -81,11 +101,11 @@ var contentBox = $('#box');
 var sortSelectionBox = $('#sortSelection');
 
 $('#sortTableList').change(function(ev, data) {
-    console.log('sortablelistchange %o', this.value);
     $('[name=loading]').show();
     gapi.client.fusiontables.column.list({tableId: this.value}).then(function(response) {
         var collst = $('#sortColumnList');
         collst.empty();
+        console.log('sortablelistchange list data %o', response.result);
         for(var idx=0; idx<response.result.items.length; idx++) {
             var el = response.result.items[idx];
             if(el.type === 'NUMBER' && el.name.slice(-1) == '?') { 
@@ -113,8 +133,8 @@ function answer (btnobj) {
 };
 
 function getnext() {
+    var val;
     var tbl = $('#sortTableList').val();
-    var col = $('#sortColumnList').val();
     var s="SELECT ROWID,Melding,Kommentarer,Avsender,ID,'Relevant?',Link,Media,'Kundeforhold?',Delinger,Dato FROM "+tbl+" WHERE 'Relevant?'='' AND 'Kundeforhold?'='' LIMIT 1;"
     if(gapi.client===undefined) return;
     $('[name=loading]').show();
@@ -123,13 +143,28 @@ function getnext() {
         var obj = new Object();
         var cols = response.result.columns;
         for(var i = 0; i<cols.length; i++) {
-            var colname = cols[i].toLocaleLowerCase().replace('?','');
-            obj[colname] = response.result.rows[0][i];
+            var colname = cols[i].toLocaleLowerCase();
+            if(colname.slice(-1) == '?') {
+                // column ends with '?', meaning it's a boolean column
+                colname = colname.replace('?', '');
+                obj[colname] = parseInt(response.result.rows[0][i], 10) == 1;
+            } else {
+                obj[colname] = response.result.rows[0][i];
+            }
         }
-        boxapp.post = obj;
+        setpost(obj);
         $('[name=loading]').hide();
     });
-};
+}
+function setpost(postobj) {
+    //get the new post from REST and add it to our view
+    boxapp.post = postobj;
+    // code around bug where MDL doesnt update the visual state to the model value
+    var relevant = document.getElementById('relevant-1').parentElement.MaterialCheckBox;
+    boxapp.post.relevant ? relevant.check() : relevant.uncheck();
+    var kundeforhold = document.getElementById('kundeforhold-1').parentElement.MaterialCheckBox;
+    boxapp.post.kundeforhold ? kundeforhold.check() : kundeforhold.uncheck();
+}
 $('#sortNext').click(getnext);
 
 
