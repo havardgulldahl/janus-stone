@@ -34,7 +34,7 @@ var error = function(error) {
     <div id="box" style="display:none; width: 1000px; height: 350px; border:3px double gray">
         <div class=post> 
             <dl>
-                <dt>Post</dt><dd>Den {{post.dato}} av <b>{{post.avsender}}</b> (+{{post.likes}})</dd>
+                <dt>Post</dt><dd>Den {{post.dato}} av <b>{{post.avsender}}</b> (+{{post.likes}}) <a v-bind:href=post.permalink>#</a></dd>
                 <dt>Tekst</dt><dd v-html=post.melding></dd>
                 <dt v-if=post.link>Lenke</dt><dd v-if=post.link><a v-bind:href=post.link target=_blank>{{post.link}}</a></dd>
                 <dt v-if=post.media>Bilde/Video</dt><dd v-if=post.media><img v-bind:src=post.media ></dd>
@@ -78,6 +78,7 @@ var error = function(error) {
                        dato: 'xx. november',
                        kundeforhold: 0,
                        relevant: 0,
+                       permalink: '',
                        rowid:'99' } 
         },
         methods: {
@@ -142,10 +143,10 @@ function answer (btnobj) {
   var ql="UPDATE "+tableId+" SET 'Relevant?'='"+boxapp.bool_relevant()+"', 'Kundeforhold?'='"+boxapp.bool_kundeforhold()+"' WHERE ROWID = '"+boxapp.post.rowid+"'";
   console.log("put %o", ql);
   contentBox.css('color', '#ccc');
-  console.log('put butn: %o', btnobj);
+  //console.log('put butn: %o', btnobj);
   var loading = $('[name=loading]').clone().appendTo(btnobj).show();
   gapi.client.fusiontables.query.sql({sql:ql}).then(function(result) {
-    console.log('inserted into %o ', boxapp.post.rowid);
+    //console.log('inserted into %o ', boxapp.post.rowid);
     getnext();
     loading.remove();
     contentBox.css('color', '#000');
@@ -155,7 +156,7 @@ function answer (btnobj) {
 function getnext() {
     var val;
     var tbl = $('#sortTableList').val();
-    var s="SELECT ROWID,Melding,Kommentarer,Avsender,ID,'Relevant?',Link,Media,'Kundeforhold?',Delinger,Dato FROM "+tbl+" WHERE 'Relevant?'='' AND 'Kundeforhold?'='' LIMIT 1;"
+    var s="SELECT ROWID,Melding,Kommentarer,Avsender,ID,'Relevant?',Link,Media,'Kundeforhold?',Delinger,Dato,Likes,Permalink FROM "+tbl+" WHERE 'Relevant?'='' AND 'Kundeforhold?'='' LIMIT 1;"
     if(gapi.client===undefined) return;
     $('[name=loading]').show();
     gapi.client.fusiontables.query.sqlGet({sql:s}).then( function(response) {
