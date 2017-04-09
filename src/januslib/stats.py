@@ -41,7 +41,7 @@ class JanusStatsSink(JanusSink):
     def finished(self):
         with tempfile.NamedTemporaryFile(suffix='.csv', prefix='janus_stats_{}'.format(self.stat_type), delete=False) as f:
             f.write('# Janus Stone stats {} created {}\r\n'.format(self.stat_type, datetime.now().isoformat()).encode())
-            f.write('# Total count: {} ({}) '.format(self.counted, 'filtered' if self.filter else 'unfiltered')
+            f.write('# Total count: {} ({}) '.format(self.counted, 'filtered' if self.filter else 'unfiltered'))
             for dte, cnt in self.created_dates.items():
                 f.write('{};{}\r\n'.format(dte, cnt).encode())
             puts('Finished processing {} posts. Here are the {} stats. Hope you are happy: {}'.format(self.counted, self.stat_type, f.name))

@@ -86,6 +86,7 @@ class Fusion:
             # Accessing the response like a dict object with an 'items' key
             # returns a list of item objects (events).
             logging.debug(response)
+            return response
             # Get the next request object by passing the previous request object to
             # the list_next method.
             #request = service.events().list_next(request, response)
@@ -115,8 +116,6 @@ class Fusion:
 
   def insertrows(self, tableid, sqlvals):
         'sqlvals is a list of OrderedDicts' 
-        def swrap(a):
-            return ''' '{}' '''.format(a)
         kyes = sqlvals[0].keys()
         colnames = [ swrap(k) for k in kyes ]
         valblock = []
@@ -127,15 +126,29 @@ class Fusion:
                                                                 ', '.join( [ swrap(vals[v]) for v in kyes ] )
                                                                 )
                                                                 )
-        import io
-        with io.open('/tmp/adbc', 'w') as ff:
-            ff.write(repr(sql))
-            
         logging.debug("generated INSERT sql: %r", sql)
         return self.sql('; '.join(sql)) #returning tuple
 
+  def select(self, what, tableid, where=None):
+        'Run a SQL SELECT query to get `what` (a list of columns or a function) on `tableid`, optionally filtered by `where`, and return response'
+        if isinstance(what, list):
+            q = 'ROWID,'+','.join(map(swrap, what))
+        else:
+            q = what
+        sqlstring = "SELECT {} FROM {} ".format(q, tableid)
+        if where is not None:
+            sqlstring = sqlstring + " WHERE {}".format(where)
+        logging.debug("generated SELECT sql: %r", sqlstring)
+        req = self.service.query().sqlGet(sql=sqlstring)
+        return self.run(req)
+
+def swrap(a):
+    return ''' '{}' '''.format(a)
+
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     f = Fusion()
-    req = f.service.table().list()
-    f.run(req)
+    #req = f.service.table().list()
+    #f.run(req)
+
 

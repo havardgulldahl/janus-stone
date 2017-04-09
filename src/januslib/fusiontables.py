@@ -1,6 +1,7 @@
+import logging
 import collections
 import fusionclient
-from . import JanusSink
+from . import JanusSink, JanusSource
 import dateutil.parser
 import html
 from clint.textui import colored, puts, indent
@@ -109,3 +110,33 @@ class JanusFusiontablesSink(JanusSink):
             else: # dont know what the format is
                 luck = repr(status)
             puts(colored.green(luck), self.output)
+
+class JanusFusiontablesSource(JanusSource):
+
+    # https://developers.google.com/fusiontables/docs/v2/reference/
+    def __init__(self, tableid, output):
+        super().__init__(output)
+        self.tableid = tableid
+        self.fusion = fusionclient.Fusion()
+        self.tables = self.fusion.run(self.fusion.service.table().list())['items']
+        self.metadata = None
+        for t in self.tables:
+            if t['tableId'] == tableid:
+                self.metadata = t
+        self.filter = None # is set in JanusSource.set_filter
+
+    def __str__(self):
+        'return pretty name'
+        n = self.metadata['name']
+        return '<<<Fusiontables({}..)>'.format(n[:8] if len(n)>8 else n)
+
+    def autenticate(self):
+        raise NotImplementedError # TODO: FIX
+
+    def __iter__(self):
+        colnames = [ c['name'] for c in self.metadata['columns'] ]
+        q = self.fusion.select(colnames, self.tableid, self.filter)
+        return iter(q['rows'])
+        
+        
+

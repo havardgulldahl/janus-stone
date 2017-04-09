@@ -18,7 +18,7 @@ import console
 
 from januslib import JanusPost
 from januslib.fb import JanusFB, JanusFBCached
-from januslib.fusiontables import JanusFusiontablesSink
+from januslib.fusiontables import JanusFusiontablesSink, JanusFusiontablesSource
 from januslib.filesinks import JanusFileSink, JanusCSVSink
 from januslib.stats import JanusStatsSink
 
@@ -74,9 +74,10 @@ class Janus:
         self.since = None # unix timestamp
         self.until = None # unix timestamp
         self.cachepath = None # where to store cached posts
+        self.filter = None # a filter for the source, see .set_filter()
 
     def format_prompt(self):
-        ps1 = colored.magenta(self.fb) if self.fb else colored.red('FB Page unset')
+        ps1 = colored.magenta(self.fb) if self.fb else colored.magenta(self.source)
         ps1 += ' ▶ ['
         _sinks = ['sink:{}'.format(c) for c in self.enabledsinks]
         ps1 += colored.green(', '.join(_sinks)) if _sinks else colored.red('No sinks set')
@@ -99,8 +100,14 @@ class Janus:
         if self.fb is not None:
             self.fb.set_until(self.until)
 
+    def command_set_source_filter(self, filterstring):
+        'Set filter on current source. The format of filterstring is dependent on the source. Args: `filterstring`'
+        self.filter = filterstring
+        if self.source is not None:
+            self.source.set_filter(filterstring)
+
     def command_set_page(self, pagename):
-        'Set the Facebook Page that we are pulling data from.'
+        'Set the Facebook Page that we are pulling data from (replacing any previous source).'
         self.fbpage = pagename
         self.fb = JanusFB(pagename, self.output)
         if self.since is not None:
@@ -110,11 +117,18 @@ class Janus:
         self.format_prompt()
 
     def command_set_page_cached(self, pagename, cachedir=None):
-        'Set the Facebook Page name that we will be pulling CACHED posts from.'
+        'Set the Facebook Page name that we will be pulling CACHED posts from (replacing any previous source).'
         self.fbpage = pagename
         if cachedir is None:
             cachedir = JANUS_CACHEDIR
         self.fb = JanusFBCached(pagename, cachedir, self.output)
+        self.format_prompt()
+
+    def command_set_source_fusiontable(self, tableid):
+        'Set a fusion table as source for posts (replacing any previous source). Args: `fusion table id`'
+        self.source = JanusFusiontablesSource(tableid, self.output)
+        if self.filter is not None:
+            self.source.set_filter(self.filter)
         self.format_prompt()
 
     def command_add_outsink(self, sinkname, *args):
@@ -154,7 +168,8 @@ class Janus:
             puts(colored.red('No sinks enabled. Add one and try again.'))
             puts(colored.magenta(' ( use `all_sinks` to show all possible sinks ) '))
             return False
-        for post in self.fb: # iterate through feed
+        #for post in self.fb: # iterate through feed
+        for post in self.source: # iterate through feed
             puts(colored.blue('Handling post # {} @ {}'.format(post.id, post.datetime_created.isoformat()), self.output))
             for sink in self.enabledsinks:
                 sink.push(post)
@@ -178,7 +193,7 @@ class Janus:
         return JanusStatsSink('date_count', self.output)
 
     def _outsink__date_count_field_true(self, field):
-        'Create a table of posts created per date, where `field` is True'
+        'Create a table of posts created per date, where post.`field` is True. Args: field'
         s = JanusStatsSink('date_count', self.output)
         s.set_filter(lambda x: getattr(x, field) == True)
         return s
@@ -240,6 +255,7 @@ if __name__ == '__main__':
     runner.command('disable_sink', j.command_disable_outsink)
     runner.command('pull', j.command_pull_posts)
     runner.command('fb_auth', j.command_fb_authenticate)
+    runner.command('set_fusiontable', j.command_set_source_fusiontable)
     ex = console.Console(runner).run_in_main()
     j.format_prompt()
     sys.exit(ex)
