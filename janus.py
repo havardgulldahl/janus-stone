@@ -177,6 +177,12 @@ class Janus:
         'Create a table of posts created per date (looking at `created_date`)'
         return JanusStatsSink('date_count', self.output)
 
+    def _outsink__date_count_field_true(self, field):
+        'Create a table of posts created per date, where `field` is True'
+        s = JanusStatsSink('date_count', self.output)
+        s.set_filter(lambda x: getattr(x, field) == True)
+        return s
+
     def count_cached_files(self):
         logging.debug('count cache: %r', self.cachepath)
         if self.cachepath is None:
