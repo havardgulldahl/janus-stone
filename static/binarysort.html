@@ -96,6 +96,14 @@ var error = function(error) {
                 } else {
                     return 1;
                 }
+            },
+            live_link : function() {
+                if(this.post.permalink.length > 5) {
+                    return this.post.permalink;
+                } else {
+                    var id= this.post.id.split('_')[1];
+                    return 'https://facebook.com/'+id;
+                }
             }
 
         }
