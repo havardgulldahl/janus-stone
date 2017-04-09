@@ -17,7 +17,6 @@ class JanusStatsSink(JanusSink):
         self.created_dates = SortedDict()
         self.counted = -1
         self.filter = None
-        self.date_stats = True  # boolean
 
     def __str__(self):
         'return pretty name'
@@ -30,7 +29,7 @@ class JanusStatsSink(JanusSink):
         if self.filter is not None:
             if not self.filter(post): # run thru filter
                 return
-        if self.date_stats == True:
+        if self.stat_type == 'date_count':
             post_date = post.datetime_created.date().isoformat()
             if not post_date in self.created_dates:
                 self.created_dates[post_date] = 1
