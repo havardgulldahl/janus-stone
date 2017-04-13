@@ -75,6 +75,7 @@ class Janus:
         self.until = None # unix timestamp
         self.cachepath = None # where to store cached posts
         self.filter = None # a filter for the source, see .set_filter()
+        self.source = None
 
     def format_prompt(self):
         ps1 = colored.magenta(self.fb) if self.fb else colored.magenta(self.source)
@@ -138,6 +139,9 @@ class Janus:
         if hasattr(self, _sink): 
             self.enabledsinks.append(getattr(self, _sink)(*args))
             self.format_prompt()
+        else:
+            puts(colored.red('No such sink found: {}. Use `all_sinks` to list available sinks'.format(sinkname)))
+            return False
 
     def command_disable_outsink(self, sinkid):
         'Disable a sink by its sink ID. See enabled sinks to get the id'
@@ -176,7 +180,7 @@ class Janus:
             i = i+1
         for sink in self.enabledsinks:
             sink.finished() # let sinks clean up and empty their queues
-        puts(colored.blue('Finished pulling {} posts from {}'.format(i, self.fb), self.output))
+        puts(colored.blue('Finished pulling {} posts from {}'.format(i, self.source), self.output))
 
     def command_update_fusiontable(self):
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
@@ -249,6 +253,7 @@ if __name__ == '__main__':
     runner.command('set_cached_page', j.command_set_page_cached)
     runner.command('set_since', j.command_set_since)
     runner.command('set_until', j.command_set_until)
+    runner.command('set_filter', j.command_set_source_filter)
     runner.command('add_sink', j.command_add_outsink)
     runner.command('all_sinks', j.command_list_outsinks)
     runner.command('enabled_sinks', j.command_list_enabled_outsinks)

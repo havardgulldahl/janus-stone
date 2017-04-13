@@ -85,7 +85,7 @@ class Fusion:
             response = request.execute()
             # Accessing the response like a dict object with an 'items' key
             # returns a list of item objects (events).
-            logging.debug(response)
+            #logging.debug(response)
             return response
             # Get the next request object by passing the previous request object to
             # the list_next method.
@@ -98,8 +98,6 @@ class Fusion:
                 'the application to re-authorize')
 
   def sql(self, sqlstring):
-        #req = self.service.query().sql(sql=sqlstring)
-        #self.run(req)
         url = '{}query'.format(self.service._baseUrl)
         logging.debug('sending request to %r', url)
         headers = {'Content-type': 'application/x-www-form-urlencoded'}
@@ -107,7 +105,7 @@ class Fusion:
                                               'POST', 
                                               headers=headers, 
                                               body=urllib.parse.urlencode({'sql':sqlstring}))
-        logging.debug('.sql got %r response: %r', response, content)
+        #logging.debug('.sql got %r response: %r', response, content)
         try:
             cont = json.loads(content.decode())
         except:

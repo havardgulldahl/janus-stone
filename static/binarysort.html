@@ -18,6 +18,11 @@ var error = function(error) {
 };
 
 </script>
+<style type="text/css">
+    .disabled { color: #ccc; }
+
+
+</style>
   </head>
   <body onload=handleClientLoad()>
     <div id="auth">
@@ -33,7 +38,7 @@ var error = function(error) {
     
     <div id="box" style="display:none; width: 1000px; height: 350px; border:3px double gray">
         <div class=post> 
-            <dl>
+            <dl v-bind:class="{ disabled: post.rowid == -1}">
                 <dt>Post</dt><dd>Den {{post.dato}} av <b>{{post.avsender}}</b> (+{{post.likes}}) <a v-bind:href=post.permalink>#</a></dd>
                 <dt>Tekst</dt><dd v-html=post.melding></dd>
                 <dt v-if=post.link>Lenke</dt><dd v-if=post.link><a v-bind:href=post.link target=_blank>{{post.link}}</a></dd>
@@ -61,7 +66,9 @@ var error = function(error) {
                     <span class="mdl-radio__label">Ja</span>
                     </label>
                 </dd>
-                <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent" onclick=answer(this)>Next</button>
+                <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent" 
+                        v-bind:disabled="post.rowid == -1"
+                        onclick=answer(this)>Next</button>
             </dl>
         </div>
     </div>
@@ -79,7 +86,7 @@ var error = function(error) {
                        kundeforhold: 0,
                        relevant: 0,
                        permalink: '',
-                       rowid:'99' } 
+                       rowid:-1 } 
         },
         methods: {
             // computed getters to streamline properties

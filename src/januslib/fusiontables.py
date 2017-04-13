@@ -1,7 +1,7 @@
 import logging
 import collections
 import fusionclient
-from . import JanusSink, JanusSource
+from . import JanusSink, JanusSource, JanusPost
 import dateutil.parser
 import html
 from clint.textui import colored, puts, indent
@@ -48,9 +48,10 @@ class JanusFusiontablesSink(JanusSink):
 
     def __format_post(self, post):
         # beat structure out of post data, which will vary from post to post
-        likes = len(post['likes']) if 'likes' in post else 0
+        likes = post['likes']['summary']['total_count'] if 'likes' in post else 0
         shares = post['shares']['count'] if 'shares' in post else 0
         comments = post['comments']['data'] if 'comments' in post else []
+        comments_count = post['comments']['summary']['total_count'] if 'comments' in post else 0
         message = post['message'] if 'message' in post else ''
         link = post['link'] if 'link' in post else ''
         permalink = post['permalink_url'] if 'permalink_url' in post else ''
@@ -75,12 +76,12 @@ class JanusFusiontablesSink(JanusSink):
             'ID': post['id'],
             'Dato': fusionify_timestamp(post['created_time']),
             'Avsender': html.escape(name),
-            '# Likes': likes,
+            'Likes': likes,
             'Melding': html.escape(message.replace('\n', ' ')),
             'Link': link, 
             'Media': media,
-            '# kommentarer': len(comments),
-            'kommentarer': comments_html(comments),
+            'AntallKommentarer': comments_count,
+            'Kommentarer': comments_html(comments),
             'Delinger': shares,
             'Permalink': permalink,
         })
@@ -111,6 +112,26 @@ class JanusFusiontablesSink(JanusSink):
                 luck = repr(status)
             puts(colored.green(luck), self.output)
 
+class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
+    'Update an existing fusion table with Facebook posts for each row'
+
+    def __init__(self, tableid, output):
+        super().__init__(tableid, output)
+        updateCols = ['share_count', 'comment_count', 'like_count'] # which columns to update (JanusFacebookPost.<col>)
+
+    def __str__(self):
+        'return pretty name'
+        return '<#{} FusiontablesFacebookUpdate(->{}..)>'.format(self.id, self.tableid[:8])
+
+    def push(self, post):
+        'Take a fusiontable post and SQL UPDATE the existing table with data from live facebook'
+        fresh_fb = fb.getPost(post.id)
+        cols = [ " '{}'='{}' ".format(col,getattr(fresh_fb, col)) for col in self.updateCols ]
+        rowid = post.get('rowid', None)
+        q = "UPDATE {} SET {} WHERE ROWID='{}'".format(self.tableid, ','.join(cols), rowid)
+        logging.debug('about to UPDATE SQL rowid=%r: %r', q)
+
+
 class JanusFusiontablesSource(JanusSource):
 
     # https://developers.google.com/fusiontables/docs/v2/reference/
@@ -128,7 +149,7 @@ class JanusFusiontablesSource(JanusSource):
     def __str__(self):
         'return pretty name'
         n = self.metadata['name']
-        return '<<<Fusiontables({}..)>'.format(n[:8] if len(n)>8 else n)
+        return '<<<Fusiontables({}..)>'.format(n[:12] if len(n)>12 else n)
 
     def autenticate(self):
         raise NotImplementedError # TODO: FIX
@@ -136,7 +157,77 @@ class JanusFusiontablesSource(JanusSource):
     def __iter__(self):
         colnames = [ c['name'] for c in self.metadata['columns'] ]
         q = self.fusion.select(colnames, self.tableid, self.filter)
-        return iter(q['rows'])
-        
+        yield from [ JanusFusiontablePost(q['columns'], post) for post in q['rows'] ]
         
 
+class JanusFusiontablePost(JanusPost):
+    'A post from Fusion Tables, with a standard interface'
+
+    def __init__(self, columns, rowdata):
+        self.post = { col:data for (col, data) in zip(columns, rowdata) }
+        logging.debug('setting self.post= %r', self.post)
+
+    @property
+    def id(self):
+        return self.post['ID']
+
+    @property
+    def rowid(self):
+        return self.post['rowid']
+
+    @property
+    def datetime_created(self):
+        '''Return datetetime.datetime representing the post's `created_time` field'''
+        return dateutil.parser.parse(self.post['Dato'])
+
+    @property
+    def like_count(self):
+        return self.post['Likes']
+
+    @property
+    def share_count(self):
+        return self.post['Delinger']
+
+    @property
+    def comment_count(self):
+        return post['AntallKommentarer']
+
+    @property
+    def comments(self):
+        return self.post['Kommentarer']
+
+    def comments_html(self, comments_struct):
+        'Turn a json list of comments into an html string'
+        s = ['<ul>', ]
+        for com in comments_struct:
+            s.append('<li><b>{}</b> (+{}): {}'.format(html.escape(com['from']['name']), 
+                                                      com['like_count'], 
+                                                      html.escape(com['message'])
+                                                      )
+                    )
+            if 'comments' in com:
+                #recurse into nested comment
+                s.append(comments_html(com['comments']['data']))
+            s.append('</li>')
+        s.append('</ul>')
+        return ''.join(s)
+
+    @property
+    def message(self):
+        return self.post['Melding']
+
+    @property
+    def link(self):
+        return self.post['Link'] 
+
+    @property
+    def permalink(self):
+        return self.post['Permalink'] 
+
+    @property
+    def name(self):
+        return post['Avsender']
+
+    @property
+    def media(self):
+        return post['Media']
