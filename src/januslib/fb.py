@@ -10,7 +10,7 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 from clint.textui import colored, puts, indent
 
-from . import JanusSource, JanusPost
+from . import JanusSource, JanusPost, JanusException
 
 class JanusFB(JanusSource):
 
@@ -21,6 +21,7 @@ class JanusFB(JanusSource):
 
         # seed feed
         self.params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message,comments{from,like_count,created_time,message,comments{from,like_count,created_time,message}},created_time},likes{name},shares,type,source,picture,link,permalink_url'
+        }
 
     def __str__(self):
         'return pretty name'
@@ -86,6 +87,9 @@ class JanusFacebookPost(JanusPost):
             self.path = json_or_path
             with json_or_path.open() as f:
                 self.post = json.loads(f.read())
+        elif isinstance(json_or_path, dict):
+            self.post = json_or_path
+            self.path = None
         elif os.path.exists(json_or_path):
             self.path = Path(json_or_path)
             self.post = json.load(json_or_path)
@@ -112,7 +116,7 @@ class JanusFacebookPost(JanusPost):
 
     @property
     def comment_count(self):
-        return post['comments']['summary']['total_count'] if 'comments' in self.post else 0
+        return self.post['comments']['summary']['total_count'] if 'comments' in self.post else 0
 
     @property
     def comments(self):
@@ -149,20 +153,20 @@ class JanusFacebookPost(JanusPost):
     @property
     def name(self):
         try:
-            return post['from']['name']
+            return self.post['from']['name']
         except KeyError:
             try:
-                return post['data']['name']
+                return self.post['data']['name']
             except KeyError:
                 return 'Unknown'
 
     @property
     def media(self):
         try:
-            if post['type'] == 'video':
+            if self.post['type'] == 'video':
                 return post['source']
-            elif post['type'] == 'photo':
-                return post['picture']
+            elif self.post['type'] == 'photo':
+                return self.post['picture']
             else:
                 return ''
         except KeyError:
@@ -173,6 +177,9 @@ def getPost(postid):
 
     graph = facebook.GraphAPI(access_token=os.environ.get('FB_APP_TOKEN'), version='2.8')
     params = {'fields': 'from,id,message,created_time,likes.summary(1),status_type,comments.summary(1),shares,type,source,picture,link,permalink_url'}
-    fbpost = graph.request('/{}'.format(postid), params)
-    return JanusFacebookPost(fbpost)
+    try:
+        fbpost = graph.request('{}'.format(postid), params)
+        return JanusFacebookPost(fbpost)
+    except facebook.GraphAPIError as e:
+        raise JanusException(str(e))
 

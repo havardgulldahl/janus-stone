@@ -6,6 +6,9 @@ import uuid
 import dateutil
 from pathlib import Path
 
+class JanusException(Exception):
+    pass
+
 class JanusSource:
     def __init__(self, outputchannel):
         self.output = outputchannel # duck typed file object 

@@ -16,9 +16,9 @@ import dateutil
 
 import console
 
-from januslib import JanusPost
+from januslib import JanusPost, JanusException
 from januslib.fb import JanusFB, JanusFBCached
-from januslib.fusiontables import JanusFusiontablesSink, JanusFusiontablesSource
+from januslib.fusiontables import *
 from januslib.filesinks import JanusFileSink, JanusCSVSink
 from januslib.stats import JanusStatsSink
 
@@ -34,7 +34,7 @@ def datestring(string):
             return value.timestamp()
         except ValueError:
             msg = "%r is not a YYYY-MM-DD [HH:MM:SS] timestamp" % string
-            raise Exception(msg)
+            raise JanusException(msg)
 
 def unixtimetoiso8601(timestamp):
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
@@ -62,6 +62,7 @@ argp.add_argument('--until', help='Date in YYYY-MM-DD [HH:MM:SS] format')
 args = argp.parse_args()
 
 logging.basicConfig(level=args.loglevel)
+
 
 class Janus:
     output = sys.stdout
@@ -200,6 +201,14 @@ class Janus:
         'Create a table of posts created per date, where post.`field` is True. Args: field'
         s = JanusStatsSink('date_count', self.output)
         s.set_filter(lambda x: getattr(x, field) == True)
+        return s
+
+    def _outsink__fusiontable_update(self, columns=None):
+        'Update each post in the current Fusiontable source with live data from Facebook. Args: columns (optional, comma separated list of columns)'
+        if not isinstance(self.source, JanusFusiontablesSource):
+            raise JanusException('Need a Fusion Table as source for this sink')
+        s = JanusFusiontablesFacebookUpdateSink(self.source.tableid, columns, self.output)
+        self.format_prompt()
         return s
 
     def count_cached_files(self):

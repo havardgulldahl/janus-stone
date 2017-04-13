@@ -1,12 +1,19 @@
 import logging
 import collections
 import fusionclient
-from . import JanusSink, JanusSource, JanusPost
+from . import JanusSink, JanusSource, JanusPost, JanusException
+from . import fb
 import dateutil.parser
 import html
 from clint.textui import colored, puts, indent
 
 FUSION_INSERT_QUEUE_MAX=25
+
+__all__ = ['JanusFusiontablesSink', 
+           'JanusFusiontablesFacebookUpdateSink', 
+           'JanusFusiontablesSource', 
+           'JanusFusiontablePost',
+           ]
 
 def fusionify_timestamp(datestring):
     '''2016-12-31T21:56:10+0000' -> 2016-12-31 21:56:10'''
@@ -101,7 +108,10 @@ class JanusFusiontablesSink(JanusSink):
             self.insert_sql(self._q)
         
     def insert_sql(self, rowdata):
-        http_code, status = self.fusion.insertrows(self.tableid, rowdata)
+        self.run(self.fusion.insertrows, self.tableid, rowdata)
+
+    def run(self, function, *args):
+        http_code, status = function(*args)
         if http_code > 201:
             puts(colored.red(repr(status)))
             puts('Error detected! Cooling down for a bit might work', self.output)
@@ -115,9 +125,12 @@ class JanusFusiontablesSink(JanusSink):
 class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
     'Update an existing fusion table with Facebook posts for each row'
 
-    def __init__(self, tableid, output):
+    def __init__(self, tableid, columns, output):
         super().__init__(tableid, output)
-        updateCols = ['share_count', 'comment_count', 'like_count'] # which columns to update (JanusFacebookPost.<col>)
+        if columns is None:
+            self.updateCols = ['share_count', 'comment_count', 'like_count'] # which columns to update (JanusFacebookPost.<col>)
+        else:
+            self.updateCols = columns
 
     def __str__(self):
         'return pretty name'
@@ -125,12 +138,18 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
 
     def push(self, post):
         'Take a fusiontable post and SQL UPDATE the existing table with data from live facebook'
-        fresh_fb = fb.getPost(post.id)
-        cols = [ " '{}'='{}' ".format(col,getattr(fresh_fb, col)) for col in self.updateCols ]
-        rowid = post.get('rowid', None)
-        q = "UPDATE {} SET {} WHERE ROWID='{}'".format(self.tableid, ','.join(cols), rowid)
-        logging.debug('about to UPDATE SQL rowid=%r: %r', q)
-
+        try:
+            fresh_fb = fb.getPost(post.id)
+        except JanusException as e:
+            return
+        _map = { 'share_count': 'Delinger',
+                 'comment_count': 'AntallKommentarer',
+                 'like_count': 'Likes'
+                 }
+        cols = [ " '{}'='{}' ".format(_map[col],getattr(fresh_fb, col)) for col in self.updateCols ]
+        q = "UPDATE {} SET {} WHERE ROWID='{}'".format(self.tableid, ','.join(cols), post.rowid)
+        logging.debug('about to UPDATE SQL rowid=%r: %r', post.rowid, q)
+        self.run(self.fusion.sql, q)
 
 class JanusFusiontablesSource(JanusSource):
 
