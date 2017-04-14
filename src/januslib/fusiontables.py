@@ -1,5 +1,6 @@
 import logging
 import collections
+import time
 import fusionclient
 from . import JanusSink, JanusSource, JanusPost, JanusException
 from . import fb
@@ -8,6 +9,12 @@ import html
 from clint.textui import colored, puts, indent
 
 FUSION_INSERT_QUEUE_MAX=25
+
+class JanusFusiontablesException(JanusException):
+    pass
+
+class JanusFusiontablesCoolDownException(JanusFusiontablesException):
+    pass
 
 __all__ = ['JanusFusiontablesSink', 
            'JanusFusiontablesFacebookUpdateSink', 
@@ -115,6 +122,7 @@ class JanusFusiontablesSink(JanusSink):
         if http_code > 201:
             puts(colored.red(repr(status)))
             puts('Error detected! Cooling down for a bit might work', self.output)
+            time.sleep(2.0)
         else:
             if 'kind' in status and status['kind'] == 'fusiontables#sqlresponse':
                 luck = '{} rows added: {}.'.format(len(status['rows']), status['rows'])
@@ -150,6 +158,7 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
         q = "UPDATE {} SET {} WHERE ROWID='{}'".format(self.tableid, ','.join(cols), post.rowid)
         logging.debug('about to UPDATE SQL rowid=%r: %r', post.rowid, q)
         self.run(self.fusion.sql, q)
+        time.sleep(2.0)
 
 class JanusFusiontablesSource(JanusSource):
 
