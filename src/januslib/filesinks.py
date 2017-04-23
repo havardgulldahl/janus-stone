@@ -13,7 +13,7 @@ class JanusFileSink(JanusSink):
 
     def __str__(self):
         'return pretty name'
-        return '<#{} File(->{})>'.format(self.id,self.cachepath)
+        return '>>>File({})'.format(self.id, self.cachepath)
 
     def push(self, post):
         if not os.path.exists(self.cachepath):
@@ -32,7 +32,7 @@ class JanusCSVSink(JanusSink):
 
     def __str__(self):
         'return pretty name'
-        return '<#{} CSVFile(->{})>'.format(self.id, self.filename)
+        return '>>>CSVFile({})'.format(self.id, self.filename)
 
     def __format_post(self, post):
         likes = len(post['likes']) if 'likes' in post else 0

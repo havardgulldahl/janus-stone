@@ -53,7 +53,7 @@ def lvl(string):
 
 argp = argparse.ArgumentParser()
 argp.add_argument('--loglevel', type=lvl, default=logging.INFO, help='Set log level')
-argp.add_argument('--fbpage', help='Set Facebook page name')
+#argp.add_argument('--fbpage', help='Set Facebook page name')
 argp.add_argument('--cached', action='store_true', default=False, help='Use CACHED posts: Dont pull them from online, but from disk')
 argp.add_argument('--add_sink', action='append', nargs='*', help='Add output sink to chain')
 argp.add_argument('--since', help='Date in YYYY-MM-DD [HH:MM:SS] format')
@@ -68,8 +68,6 @@ class Janus:
     output = sys.stdout
 
     def __init__(self):
-        self.fbpage = None
-        self.fb = None
         self.outsinks = [func[10:] for func in dir(self) if callable(getattr(self, func)) and func.startswith("_outsink__")]
         self.enabledsinks = [] # list of tuples (cmd, *args)
         self.since = None # unix timestamp
@@ -79,7 +77,7 @@ class Janus:
         self.source = None
 
     def format_prompt(self):
-        ps1 = colored.magenta(self.fb) if self.fb else colored.magenta(self.source)
+        ps1 = colored.magenta(self.source)
         ps1 += ' ▶ ['
         _sinks = ['sink:{}'.format(c) for c in self.enabledsinks]
         ps1 += colored.green(', '.join(_sinks)) if _sinks else colored.red('No sinks set')
@@ -93,14 +91,14 @@ class Janus:
     def command_set_since(self, datetimestring):
         'The datetime to start the Facebook Page retrieval at. Args: timestamp, format YYYY-MM-DD [HH:MM:SS]'
         self.since = datestring(datetimestring)
-        if self.fb is not None:
-            self.fb.set_since(self.since)
+        if self.source is not None:
+            self.source.set_since(self.since)
 
     def command_set_until(self, datetimestring):
         'The datetime to end the Facebook Page retrieval at. Args: timestamp, format YYYY-MM-DD [HH:MM:SS]'
         self.until = datestring(datetimestring)
-        if self.fb is not None:
-            self.fb.set_until(self.until)
+        if self.source is not None:
+            self.source.set_until(self.until)
 
     def command_set_source_filter(self, filterstring):
         'Set filter on current source. The format of filterstring is dependent on the source. Args: `filterstring`'
@@ -110,20 +108,18 @@ class Janus:
 
     def command_set_page(self, pagename):
         'Set the Facebook Page that we are pulling data from (replacing any previous source).'
-        self.fbpage = pagename
-        self.fb = JanusFB(pagename, self.output)
+        self.source = JanusFB(pagename, self.output)
         if self.since is not None:
-            self.fb.set_since(self.since)
+            self.source.set_since(self.since)
         if self.until is not None:
-            self.fb.set_until(self.until)
+            self.source.set_until(self.until)
         self.format_prompt()
 
     def command_set_page_cached(self, pagename, cachedir=None):
         'Set the Facebook Page name that we will be pulling CACHED posts from (replacing any previous source).'
-        self.fbpage = pagename
         if cachedir is None:
             cachedir = JANUS_CACHEDIR
-        self.fb = JanusFBCached(pagename, cachedir, self.output)
+        self.source = JanusFBCached(pagename, cachedir, self.output)
         self.format_prompt()
 
     def command_set_source_fusiontable(self, tableid):
@@ -173,7 +169,6 @@ class Janus:
             puts(colored.red('No sinks enabled. Add one and try again.'))
             puts(colored.magenta(' ( use `all_sinks` to show all possible sinks ) '))
             return False
-        #for post in self.fb: # iterate through feed
         for post in self.source: # iterate through feed
             puts(colored.blue('Handling post # {} @ {}'.format(post.id, post.datetime_created.isoformat()), self.output))
             for sink in self.enabledsinks:
@@ -190,7 +185,7 @@ class Janus:
         'Store post JSON to a file on disk. Args: path (optional, defaults to JANUS_CACHEDIR)'
         if not path:
             path = JANUS_CACHEDIR
-        self.cachepath = '{}/{}'.format(path, self.fbpage)
+        self.cachepath = '{}/{}'.format(path, self.source.id)
         return JanusFileSink(self.cachepath, self.output)
 
     def _outsink__date_count(self):
@@ -241,11 +236,11 @@ class Janus:
 if __name__ == '__main__':
     import sys
     j = Janus()
-    if args.fbpage is not None:
-        if not args.cached:
-            j.command_set_page(args.fbpage)
-        else:
-            j.command_set_page_cached(args.fbpage)
+    #if args.fbpage is not None:
+    #    if not args.cached:
+    #        j.command_set_page(args.fbpage)
+    #    else:
+    #        j.command_set_page_cached(args.fbpage)
     logging.debug('sinks: %r', args.add_sink)
     if args.add_sink is not None:
         for s in args.add_sink:
@@ -263,13 +258,13 @@ if __name__ == '__main__':
     runner.command('set_since', j.command_set_since)
     runner.command('set_until', j.command_set_until)
     runner.command('set_filter', j.command_set_source_filter)
+    runner.command('set_fusiontable', j.command_set_source_fusiontable)
     runner.command('add_sink', j.command_add_outsink)
     runner.command('all_sinks', j.command_list_outsinks)
     runner.command('enabled_sinks', j.command_list_enabled_outsinks)
     runner.command('disable_sink', j.command_disable_outsink)
     runner.command('pull', j.command_pull_posts)
     runner.command('fb_auth', j.command_fb_authenticate)
-    runner.command('set_fusiontable', j.command_set_source_fusiontable)
     ex = console.Console(runner).run_in_main()
     j.format_prompt()
     sys.exit(ex)

@@ -18,6 +18,7 @@ class JanusFB(JanusSource):
         super().__init__(output)
         self.graph = facebook.GraphAPI(access_token=os.environ.get('FB_APP_TOKEN'), version='2.8')
         self.pagename = facebookpage
+        self.id = facebookpage
 
         # seed feed
         self.params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message,comments{from,like_count,created_time,message,comments{from,like_count,created_time,message}},created_time},likes{name},shares,type,source,picture,link,permalink_url'
@@ -25,7 +26,7 @@ class JanusFB(JanusSource):
 
     def __str__(self):
         'return pretty name'
-        return 'FB@{} (online)'.format(self.pagename)
+        return '<<<FacebookPageONLINE({})'.format(self.pagename)
 
     def authenticate(self):
         permissions = ['public_profile',]
@@ -67,6 +68,7 @@ class JanusFBCached(JanusSource):
         super().__init__(output)
         self.graph = None
         self.pagename = facebookpage
+        self.id = facebookpage
         self.cachepath = Path(datapath, facebookpage)
 
         if not self.cachepath.is_dir():
@@ -74,7 +76,7 @@ class JanusFBCached(JanusSource):
 
     def __str__(self):
         'return pretty name'
-        return 'FB@{} (CACHED)'.format(self.pagename)
+        return '<<<FacebookPageCACHED({})'.format(self.pagename)
 
     def __iter__(self):
         yield from [JanusFacebookPost(p) for p in self.cachepath.glob('*.json')]

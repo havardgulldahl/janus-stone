@@ -37,7 +37,6 @@ class JanusStatsSink(JanusSink):
                 self.created_dates[post_date] += 1
         self.counted += 1
         
-
     def finished(self):
         with tempfile.NamedTemporaryFile(suffix='.csv', prefix='janus_stats_{}'.format(self.stat_type), delete=False) as f:
             f.write('# Janus Stone stats {} created {}\r\n'.format(self.stat_type, datetime.now().isoformat()).encode())

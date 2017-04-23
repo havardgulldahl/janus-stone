@@ -52,10 +52,12 @@ class JanusFusiontablesSink(JanusSink):
         self.tableid = tableid
         self.fusion = fusionclient.Fusion()
         self._q = []
+        self.metadata = self.fusion.run(self.fusion.service.table().get(tableId=tableid))
 
     def __str__(self):
         'return pretty name'
-        return '<#{} Fusiontables(->{}..)>'.format(self.id, self.tableid[:8])
+        n = self.metadata['name']
+        return '>>>Fusiontable({})'.format(self._slugify(n))
 
     def autenticate(self):
         raise NotImplementedError # TODO: FIX
@@ -142,7 +144,8 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
 
     def __str__(self):
         'return pretty name'
-        return '<#{} FusiontablesFacebookUpdate(->{}..)>'.format(self.id, self.tableid[:8])
+        n = self.metadata['name']
+        return '>>>FusiontablesFacebookUpdate({})'.format(self._slugify(n))
 
     def push(self, post):
         'Take a fusiontable post and SQL UPDATE the existing table with data from live facebook'
@@ -166,18 +169,14 @@ class JanusFusiontablesSource(JanusSource):
     def __init__(self, tableid, output):
         super().__init__(output)
         self.tableid = tableid
+        self.id = tableid
         self.fusion = fusionclient.Fusion()
-        self.tables = self.fusion.run(self.fusion.service.table().list())['items']
-        self.metadata = None
-        for t in self.tables:
-            if t['tableId'] == tableid:
-                self.metadata = t
-        self.filter = None # is set in JanusSource.set_filter
+        self.metadata = self.fusion.run(self.fusion.service.table().get(tableId=tableid))
 
     def __str__(self):
         'return pretty name'
         n = self.metadata['name']
-        return '<<<Fusiontables({}..)>'.format(n[:12] if len(n)>12 else n)
+        return '<<<Fusiontables({})>'.format(self._slugify(n))
 
     def autenticate(self):
         raise NotImplementedError # TODO: FIX

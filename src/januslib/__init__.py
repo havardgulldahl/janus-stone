@@ -15,11 +15,17 @@ class JanusSource:
         self.since = None
         self.until = None
         self.filter = None
+        self.id = str(uuid.uuid4())[:4]
         # seed feed
 
     def __str__(self):
         'return pretty name'
         return '<{}>'.format(self.__class__.__name__)
+
+    def _slugify(self, s, maxlen=16):
+        'convenience method to truncate - slugify - a string'
+        if len(s) <= maxlen: return s
+        return '{}..{}'.format(s[:5], s[-5:])
 
     def __iter__(self):
         raise NotImplementedError
@@ -46,6 +52,11 @@ class JanusSink:
     def __str__(self):
         'return pretty name'
         return '<#{} {}>'.format(self.id, self.__class__.__name__)
+
+    def _slugify(self, s, maxlen=16):
+        'convenience method to truncate - slugify - a string'
+        if len(s) <= maxlen: return s
+        return '{}..{}'.format(s[:5], s[-5:])
 
     def authenticate(self):
         raise NotImplementedError
