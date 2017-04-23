@@ -186,14 +186,24 @@ class Janus:
             puts(colored.red('No sinks enabled. Add one and try again.'))
             puts(colored.magenta(' ( use `all_sinks` to show all possible sinks ) '))
             return False
+        errors = []
         for post in self.source: # iterate through feed
             puts(colored.blue('Handling post # {} @ {}'.format(post.id, post.datetime_created.isoformat()), self.output))
             for sink in self.enabledsinks:
-                sink.push(post)
+                try:
+                    sink.push(post)
+                except Exception as e:
+                    errors.append( (post, e) )
             i = i+1
         for sink in self.enabledsinks:
             sink.finished() # let sinks clean up and empty their queues
         puts(colored.blue('Finished pulling {} posts from {}'.format(i, self.source), self.output))
+        if len(errors) == 0:
+            puts(colored.green('No errors. yay'))
+        else:
+            puts(colored.red('There were {} errors:'))
+            for (post, ex) in self.errors:
+                puts(colored.red('ID: {}, Date: {}, Author: {} -- {}'.format(post.id, post.datetime_created.isoformat(), post.name, str(ex))))
 
     def command_update_fusiontable(self):
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'

@@ -22,10 +22,10 @@ class JanusSource:
         'return pretty name'
         return '<{}>'.format(self.__class__.__name__)
 
-    def _slugify(self, s, maxlen=16):
+    def _slugify(self, s, maxlen=20):
         'convenience method to truncate - slugify - a string'
         if len(s) <= maxlen: return s
-        return '{}..{}'.format(s[:5], s[-5:])
+        return '{}..{}'.format(s[:9], s[-9:])
 
     def __iter__(self):
         raise NotImplementedError
@@ -53,10 +53,10 @@ class JanusSink:
         'return pretty name'
         return '<#{} {}>'.format(self.id, self.__class__.__name__)
 
-    def _slugify(self, s, maxlen=16):
+    def _slugify(self, s, maxlen=20):
         'convenience method to truncate - slugify - a string'
         if len(s) <= maxlen: return s
-        return '{}..{}'.format(s[:5], s[-5:])
+        return '{}..{}'.format(s[:9], s[-9:])
 
     def authenticate(self):
         raise NotImplementedError
