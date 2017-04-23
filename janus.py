@@ -14,7 +14,7 @@ from clint.textui import colored, puts, indent
 import html
 import dateutil
 
-import console
+import console # TODO: replace with python-prompt-toolkit
 
 from januslib import JanusPost, JanusException
 from januslib.fb import JanusFB, JanusFBCached
@@ -63,6 +63,23 @@ args = argp.parse_args()
 
 logging.basicConfig(level=args.loglevel)
 
+def ask_iterator(ques, it):
+    l = list(it)
+    for i in range(len(l)):
+        puts('\n[{}]:\t{}\n'.format(i, l[i]))
+
+    puts('=======\n')
+    puts(colored.green(ques))
+    def _ask(q=None):
+        if q is None: q = ques
+        return int(input(q))
+    idx = None
+    while idx is None:
+        try: 
+            idx = _ask('Select from {} to {}: '.format(0, len(l)))
+        except TypeError:
+            continue
+    return l[idx]
 
 class Janus:
     output = sys.stdout
@@ -140,7 +157,14 @@ class Janus:
             puts(colored.red('No such sink found: {}. Use `all_sinks` to list available sinks'.format(sinkname)))
             return False
 
-    def command_disable_outsink(self, sinkid):
+
+    def command_disable_outsink(self):
+        'Get a list of enabled sinks and disable one of them'
+        sink = ask_iterator('Choose which sink you want to disable?', self.enabledsinks)
+        self.enabledsinks.remove(sink)
+        self.format_prompt()
+
+    def old_command_disable_outsink(self, sinkid):
         'Disable a sink by its sink ID. See enabled sinks to get the id'
         if sinkid[0] == '#': sinkid = sinkid[1:]
         try:
@@ -265,7 +289,7 @@ if __name__ == '__main__':
     runner.command('disable_sink', j.command_disable_outsink)
     runner.command('pull', j.command_pull_posts)
     runner.command('fb_auth', j.command_fb_authenticate)
-    ex = console.Console(runner).run_in_main()
     j.format_prompt()
+    ex = console.Console(runner).run_in_main()
     sys.exit(ex)
 
