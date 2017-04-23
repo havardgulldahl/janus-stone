@@ -146,7 +146,7 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
     def __init__(self, table, columns, output):
         super().__init__(table, output)
         if columns is None:
-            self.updateCols = ['share_count', 'comment_count', 'like_count'] # which columns to update (JanusFacebookPost.<col>)
+            self.updateCols = ['share_count', 'comment_count', 'like_count', 'permalink'] # which columns to update (JanusFacebookPost.<col>)
         else:
             self.updateCols = columns
 
@@ -160,10 +160,13 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
         try:
             fresh_fb = fb.getPost(post.id)
         except JanusException as e:
+            logging.exception(e)
+            puts(colored.red(repr(e)))
             return
-        _map = { 'share_count': 'Delinger',
+        _map = { 'share_count': 'Delinger', #TODO: Get rid of this
                  'comment_count': 'AntallKommentarer',
-                 'like_count': 'Likes'
+                 'like_count': 'Likes',
+                 'permalink': 'Permalink',
                  }
         cols = [ " '{}'='{}' ".format(_map[col],getattr(fresh_fb, col)) for col in self.updateCols ]
         q = "UPDATE {} SET {} WHERE ROWID='{}'".format(self.table.tableid, ','.join(cols), post.rowid)
@@ -177,7 +180,6 @@ class JanusFusiontablesSource(JanusSource):
     def __init__(self, table, output):
         super().__init__(output)
         self.table = table
-        logging.debug('table metadata: %r', table.metadata)
         self.id = table.tableid
         self.fusion = fusionclient.Fusion()
         #self.metadata = self.fusion.run(self.fusion.service.table().get(tableId=tableid))
@@ -191,7 +193,7 @@ class JanusFusiontablesSource(JanusSource):
         raise NotImplementedError # TODO: FIX
 
     def __iter__(self):
-        colnames = [ c['name'] for c in self.table['columns'] ]
+        colnames = [ c['name'] for c in self.table.metadata['columns'] ]
         q = self.fusion.select(colnames, self.table.tableid, self.filter)
         yield from [ JanusFusiontablePost(q['columns'], post) for post in q['rows'] ]
         

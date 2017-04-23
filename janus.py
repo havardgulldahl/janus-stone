@@ -219,7 +219,7 @@ class Janus:
         'Update each post in the current Fusiontable source with live data from Facebook. Args: columns (optional, comma separated list of columns)'
         if not isinstance(self.source, JanusFusiontablesSource):
             raise JanusException('Need a Fusion Table as source for this sink')
-        s = JanusFusiontablesFacebookUpdateSink(self.source.tableid, columns, self.output)
+        s = JanusFusiontablesFacebookUpdateSink(self.source.table, columns, self.output)
         self.format_prompt()
         return s
 
