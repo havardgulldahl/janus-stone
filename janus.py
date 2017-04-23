@@ -139,9 +139,13 @@ class Janus:
         self.source = JanusFBCached(pagename, cachedir, self.output)
         self.format_prompt()
 
-    def command_set_source_fusiontable(self, tableid):
-        'Set a fusion table as source for posts (replacing any previous source). Args: `fusion table id`'
-        self.source = JanusFusiontablesSource(tableid, self.output)
+    def command_set_source_fusiontable(self):
+        'Set a fusion table as source for posts (replacing any previous source).'
+        fusiontables = get_fusiontables()
+        logging.debug('Got ftables: %r', fusiontables)
+        table = ask_iterator('Which table as source?', fusiontables)
+        logging.debug('Chose ftable: %s', table)
+        self.source = JanusFusiontablesSource(table, self.output)
         if self.filter is not None:
             self.source.set_filter(self.filter)
         self.format_prompt()
@@ -163,17 +167,6 @@ class Janus:
         sink = ask_iterator('Choose which sink you want to disable?', self.enabledsinks)
         self.enabledsinks.remove(sink)
         self.format_prompt()
-
-    def old_command_disable_outsink(self, sinkid):
-        'Disable a sink by its sink ID. See enabled sinks to get the id'
-        if sinkid[0] == '#': sinkid = sinkid[1:]
-        try:
-            item = [ s for s in self.enabledsinks if s.id == sinkid][0]
-            self.enabledsinks.remove(item)
-            self.format_prompt()
-        except IndexError: # no such sink id
-            puts(colored.red('No such sink ID: {}'.format(sinkid)))
-            return False
 
     def command_list_outsinks(self):
         'List all possible outsinks'

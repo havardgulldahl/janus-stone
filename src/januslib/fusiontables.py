@@ -20,6 +20,7 @@ __all__ = ['JanusFusiontablesSink',
            'JanusFusiontablesFacebookUpdateSink', 
            'JanusFusiontablesSource', 
            'JanusFusiontablePost',
+           'get_fusiontables',
            ]
 
 def fusionify_timestamp(datestring):
@@ -43,20 +44,27 @@ def comments_html(comments):
     s.append('</ul>')
     return ''.join(s)
 
+def get_fusiontables():
+    'Get a list of all fusion tables'
+    fus = fusionclient.Fusion()
+    try:
+        return [JanusFusiontable(t) for t in fus.run(fus.service.table().list())['items']]
+    except KeyError:
+        return []
 
 class JanusFusiontablesSink(JanusSink):
 
     # https://developers.google.com/fusiontables/docs/v2/reference/
-    def __init__(self, tableid, output):
+    def __init__(self, table, output):
         super().__init__(output)
-        self.tableid = tableid
+        self.table = table
         self.fusion = fusionclient.Fusion()
         self._q = []
-        self.metadata = self.fusion.run(self.fusion.service.table().get(tableId=tableid))
+        #self.metadata = self.fusion.run(self.fusion.service.table().get(tableId=tableid))
 
     def __str__(self):
         'return pretty name'
-        n = self.metadata['name']
+        n = str(self.table)
         return '>>>Fusiontable({})'.format(self._slugify(n))
 
     def autenticate(self):
@@ -117,7 +125,7 @@ class JanusFusiontablesSink(JanusSink):
             self.insert_sql(self._q)
         
     def insert_sql(self, rowdata):
-        self.run(self.fusion.insertrows, self.tableid, rowdata)
+        self.run(self.fusion.insertrows, self.table.tableid, rowdata)
 
     def run(self, function, *args):
         http_code, status = function(*args)
@@ -135,8 +143,8 @@ class JanusFusiontablesSink(JanusSink):
 class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
     'Update an existing fusion table with Facebook posts for each row'
 
-    def __init__(self, tableid, columns, output):
-        super().__init__(tableid, output)
+    def __init__(self, table, columns, output):
+        super().__init__(table, output)
         if columns is None:
             self.updateCols = ['share_count', 'comment_count', 'like_count'] # which columns to update (JanusFacebookPost.<col>)
         else:
@@ -144,7 +152,7 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
 
     def __str__(self):
         'return pretty name'
-        n = self.metadata['name']
+        n = str(self.table)
         return '>>>FusiontablesFacebookUpdate({})'.format(self._slugify(n))
 
     def push(self, post):
@@ -158,7 +166,7 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
                  'like_count': 'Likes'
                  }
         cols = [ " '{}'='{}' ".format(_map[col],getattr(fresh_fb, col)) for col in self.updateCols ]
-        q = "UPDATE {} SET {} WHERE ROWID='{}'".format(self.tableid, ','.join(cols), post.rowid)
+        q = "UPDATE {} SET {} WHERE ROWID='{}'".format(self.table.tableid, ','.join(cols), post.rowid)
         logging.debug('about to UPDATE SQL rowid=%r: %r', post.rowid, q)
         self.run(self.fusion.sql, q)
         time.sleep(2.0)
@@ -166,26 +174,45 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
 class JanusFusiontablesSource(JanusSource):
 
     # https://developers.google.com/fusiontables/docs/v2/reference/
-    def __init__(self, tableid, output):
+    def __init__(self, table, output):
         super().__init__(output)
-        self.tableid = tableid
-        self.id = tableid
+        self.table = table
+        logging.debug('table metadata: %r', table.metadata)
+        self.id = table.tableid
         self.fusion = fusionclient.Fusion()
-        self.metadata = self.fusion.run(self.fusion.service.table().get(tableId=tableid))
+        #self.metadata = self.fusion.run(self.fusion.service.table().get(tableId=tableid))
 
     def __str__(self):
         'return pretty name'
-        n = self.metadata['name']
+        n = str(self.table)
         return '<<<Fusiontables({})>'.format(self._slugify(n))
 
     def autenticate(self):
         raise NotImplementedError # TODO: FIX
 
     def __iter__(self):
-        colnames = [ c['name'] for c in self.metadata['columns'] ]
-        q = self.fusion.select(colnames, self.tableid, self.filter)
+        colnames = [ c['name'] for c in self.table['columns'] ]
+        q = self.fusion.select(colnames, self.table.tableid, self.filter)
         yield from [ JanusFusiontablePost(q['columns'], post) for post in q['rows'] ]
         
+
+class JanusFusiontable:
+    'A object wrapper for a Fusion Table'
+
+    def __init__(self, metadata):
+        self.metadata = metadata
+        logging.debug('Got table metadata: %r', metadata)
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def tableid(self):
+        return self.metadata['tableId']
+
+    @property
+    def name(self):
+        return self.metadata['name']
 
 class JanusFusiontablePost(JanusPost):
     'A post from Fusion Tables, with a standard interface'
