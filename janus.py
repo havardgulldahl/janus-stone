@@ -66,9 +66,9 @@ logging.basicConfig(level=args.loglevel)
 def ask_iterator(ques, it):
     l = list(it)
     for i in range(len(l)):
-        puts('\n[{}]:\t{}\n'.format(i, l[i]))
+        puts('[{}]:\t{}'.format(i, l[i]))
 
-    puts('=======\n')
+    puts('=======')
     puts(colored.green(ques))
     def _ask(q=None):
         if q is None: q = ques
@@ -76,8 +76,8 @@ def ask_iterator(ques, it):
     idx = None
     while idx is None:
         try: 
-            idx = _ask('Select from {} to {}: '.format(0, len(l)))
-        except TypeError:
+            idx = _ask('Select from {} to {}: '.format(0, len(l)-1))
+        except (ValueError, TypeError):
             continue
     return l[idx]
 
