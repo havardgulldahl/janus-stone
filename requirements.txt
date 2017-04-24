@@ -7,3 +7,4 @@ python-dateutil==2.6.0
 python-dotenv==0.6.3
 sortedcontainers==1.5.7
 colorlog
+aiohttp

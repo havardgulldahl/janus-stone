@@ -11,7 +11,12 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 from clint.textui import colored, puts, indent
 
-logger = colorlog.getLogger('Janus.januslib.fb')
+import http.server
+import socketserver
+import threading
+import urllib
+
+logger = logging.getLogger('Janus.januslib.fb')
 
 from . import JanusSource, JanusPost, JanusException
 
@@ -187,4 +192,46 @@ def getPost(postid):
         return JanusFacebookPost(fbpost)
     except facebook.GraphAPIError as e:
         raise JanusException(str(e))
+
+def fb_authenticate():
+    permissions = ['public_profile',]
+    canvas_url = 'http://gulldahlpc.local:8080/'
+    fb_login_url = facebook.auth_url(os.environ.get('FB_APP_ID'), canvas_url, permissions)
+    puts(colored.blue('Go to the following url in a browser to complete login:\n{}'.format(fb_login_url)))
+
+class AuthHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        'Parse token from query'
+        logger.debug('Got query: %r', self.path[:10] if len(self.path)>10 else self.path)
+        query = {}
+        if self.path.startswith('/?code='): # got token
+            query = urllib.parse.parse_qs(self.path[2:])
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write('Token{} OK'.format(' NOT' if not 'code' in query else '').encode())
+        if 'code' in query:
+            self.server.q.put(query['code'].pop())
+
+    def log_message(self, format, *args):
+        return # dont log anything
+
+class Server(socketserver.TCPServer):
+    allow_reuse_address = True
+
+def fb_run_oauth_endpoint(q):
+    'Start a webserver at 0.0.0.0:8080 to catch oauth code, update queue.Queue `q`'
+
+    port = 8080
+    addr = '0.0.0.0'
+
+    httpd = Server((addr, port), AuthHandler, bind_and_activate=False)
+    httpd.server_bind()
+    httpd.server_activate()
+    httpd.q = q
+    t = threading.Thread(target=httpd.serve_forever)
+    t.daemon = True
+    t.start()
+    logger.debug("OAuth Endpoint live at http://{0}:{1}".format(addr, port))
+    return t, httpd
 

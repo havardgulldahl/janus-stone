@@ -15,11 +15,14 @@ from datetime import datetime
 from clint.textui import colored, puts as clintputs, indent # pip install clint
 import html
 import dateutil # pip install python-dateutil
+from queue import Queue
+
+from dotenv import load_dotenv, find_dotenv, set_key
 
 import console # TODO: replace with python-prompt-toolkit
 
 from januslib import JanusPost, JanusException
-from januslib.fb import JanusFB, JanusFBCached
+from januslib.fb import JanusFB, JanusFBCached, fb_authenticate, fb_run_oauth_endpoint
 from januslib.fusiontables import *
 from januslib.filesinks import JanusFileSink, JanusCSVSink
 from januslib.stats import JanusStatsSink
@@ -67,9 +70,9 @@ argp.add_argument('--until', help='Date in YYYY-MM-DD [HH:MM:SS] format')
 
 args = argp.parse_args()
 
-#logging.basicConfig(level=args.loglevel)
+logging.basicConfig(level=args.loglevel)
 
-logger = colorlog.getLogger('Janus')
+logger = logging.getLogger('Janus')
 
 colorout = colorlog.StreamHandler()
 colorout.setFormatter(colorlog.ColoredFormatter(
@@ -79,6 +82,7 @@ logger.addHandler(colorout)
 
 fileout = logging.handlers.RotatingFileHandler('/tmp/janus.log', maxBytes=5*1024*1024, backupCount=5)
 fileout.setLevel(logging.DEBUG)
+fileout.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(fileout)
 
 def ask_iterator(ques, it):
@@ -208,11 +212,16 @@ class Janus:
         self._assert_sinks() # make sure someone receives this
         i = 0
         errors = []
+        stop = False
         for post in self.source: # iterate through source, get JanusPost (or derivative)
+            if stop == True: break
             puts(colored.blue('Handling post # {} @ {}'.format(post.id, post.datetime_created.isoformat()), self.output))
             for sink in self.enabledsinks:
                 try:
                     sink.push(post)
+                except KeyboardInterrupt:
+                    stop = True
+                    break
                 except Exception as e:
                     errors.append( (post, e) )
             i = i+1
@@ -277,10 +286,20 @@ class Janus:
 
     def command_fb_authenticate(self):
         'Start procedure to authenticate to facebook.'
-        self.fb.authenticate() 
+        logger.debug('Starting once off server to catch token')
+        q = Queue()
+        thread, httpd = fb_run_oauth_endpoint(q)
+        logger.debug('Authenticate fb command')
+        fb_authenticate() 
+        code = q.get()
+        logger.info('Got token. length: %i', len(code))
+        httpd.shutdown()
+        logger.debug('Storing token in .env')
+        env = find_dotenv()
+        set_key(env, 'FB_APP_TOKEN', code)
+        logger.debug('Reload env')
+        load_dotenv(env)
 
-
-        
 if __name__ == '__main__':
     import sys
     j = Janus()
