@@ -1,4 +1,4 @@
-
+import colorlog
 import io
 import json
 import os.path
@@ -7,6 +7,8 @@ import tempfile
 
 from clint.textui import colored, puts, indent
 from sortedcontainers import SortedDict # pip install sortedcontainers
+
+logger = colorlog.getLogger('Janus.januslib.stats')
 from . import JanusSink
 
 class JanusStatsSink(JanusSink):

@@ -1,10 +1,13 @@
 import logging
+import colorlog
 import os
 import io
 import json
 import uuid
 import dateutil
 from pathlib import Path
+
+logger = colorlog.getLogger('Janus.januslib')
 
 class JanusException(Exception):
     pass

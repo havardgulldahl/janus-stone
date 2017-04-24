@@ -1,4 +1,5 @@
 import logging
+import colorlog
 import collections
 import time
 import fusionclient
@@ -7,6 +8,8 @@ from . import fb
 import dateutil.parser
 import html
 from clint.textui import colored, puts, indent
+
+logger = colorlog.getLogger('Janus.januslib.fusiontables')
 
 FUSION_INSERT_QUEUE_MAX=25
 
@@ -160,7 +163,7 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
         try:
             fresh_fb = fb.getPost(post.id)
         except JanusException as e:
-            logging.exception(e)
+            logger.exception(e)
             puts(colored.red(repr(e)))
             return
         _map = { 'share_count': 'Delinger', #TODO: Get rid of this
@@ -170,7 +173,7 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
                  }
         cols = [ " '{}'='{}' ".format(_map[col],getattr(fresh_fb, col)) for col in self.updateCols ]
         q = "UPDATE {} SET {} WHERE ROWID='{}'".format(self.table.tableid, ','.join(cols), post.rowid)
-        logging.debug('about to UPDATE SQL rowid=%r: %r', post.rowid, q)
+        logger.debug('about to UPDATE SQL rowid=%r: %r', post.rowid, q)
         self.run(self.fusion.sql, q)
         time.sleep(2.0)
 
@@ -203,7 +206,7 @@ class JanusFusiontable:
 
     def __init__(self, metadata):
         self.metadata = metadata
-        logging.debug('Got table metadata: %r', metadata)
+        logger.debug('Got table metadata: %r', metadata)
 
     def __str__(self):
         return self.name
@@ -221,7 +224,7 @@ class JanusFusiontablePost(JanusPost):
 
     def __init__(self, columns, rowdata):
         self.post = { col:data for (col, data) in zip(columns, rowdata) }
-        logging.debug('setting self.post= %r', self.post)
+        logger.debug('setting self.post= %r', self.post)
 
     @property
     def id(self):

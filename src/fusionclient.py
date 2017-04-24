@@ -18,6 +18,7 @@ import httplib2
 import urllib.parse
 import sys,os
 import logging
+import colorlog
 import json
 from pprint import pprint
 from dotenv import load_dotenv, find_dotenv
@@ -28,6 +29,8 @@ from oauth2client import tools
 from oauth2client.file import Storage
 from oauth2client.client import AccessTokenRefreshError
 from oauth2client.client import OAuth2WebServerFlow
+
+logger = colorlog.getLogger('Janus.fusionclient')
 
 # For this example, the client id and client secret are command-line arguments.
 client_id = os.environ.get("CLIENT_ID")
@@ -99,13 +102,13 @@ class Fusion:
 
   def sql(self, sqlstring):
         url = '{}query'.format(self.service._baseUrl)
-        logging.debug('sending request to %r', url)
+        logger.debug('sending request to %r', url)
         headers = {'Content-type': 'application/x-www-form-urlencoded'}
         response, content = self.http.request(url, 
                                               'POST', 
                                               headers=headers, 
                                               body=urllib.parse.urlencode({'sql':sqlstring}))
-        #logging.debug('.sql got %r response: %r', response, content)
+        #logger.debug('.sql got %r response: %r', response, content)
         try:
             cont = json.loads(content.decode())
         except:
@@ -124,7 +127,7 @@ class Fusion:
                                                                 ', '.join( [ swrap(vals[v]) for v in kyes ] )
                                                                 )
                                                                 )
-        logging.debug("generated INSERT sql: %r", sql)
+        logger.debug("generated INSERT sql: %r", sql)
         return self.sql('; '.join(sql)) #returning tuple
 
   def select(self, what, tableid, where=None):
@@ -136,7 +139,7 @@ class Fusion:
         sqlstring = "SELECT {} FROM {} ".format(q, tableid)
         if where is not None:
             sqlstring = sqlstring + " WHERE {}".format(where)
-        logging.debug("generated SELECT sql: %r", sqlstring)
+        logger.debug("generated SELECT sql: %r", sqlstring)
         req = self.service.query().sqlGet(sql=sqlstring)
         return self.run(req)
 

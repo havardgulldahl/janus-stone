@@ -1,9 +1,12 @@
 
+import colorlog
 import io
 import json
 import os.path
 
 from . import JanusSink
+
+logger = colorlog.getLogger('Janus.januslib.filesinks')
 
 class JanusFileSink(JanusSink):
     

@@ -9,10 +9,12 @@ import os
 import argparse
 import code
 import logging
+import logging.handlers
+import colorlog  # pip install colorlog
 from datetime import datetime
-from clint.textui import colored, puts, indent
+from clint.textui import colored, puts as clintputs, indent # pip install clint
 import html
-import dateutil
+import dateutil # pip install python-dateutil
 
 import console # TODO: replace with python-prompt-toolkit
 
@@ -44,6 +46,10 @@ def fusionify_timestamp(datestring):
     yourdate = dateutil.parser.parse(datestring)
     return yourdate.strftime('%Y-%m-%d %H:%M:%S')
 
+def puts(s):
+    'Print with logging'
+    logger.info(s)
+    clintputs(s)
 
 def lvl(string):
     try:
@@ -61,7 +67,19 @@ argp.add_argument('--until', help='Date in YYYY-MM-DD [HH:MM:SS] format')
 
 args = argp.parse_args()
 
-logging.basicConfig(level=args.loglevel)
+#logging.basicConfig(level=args.loglevel)
+
+logger = colorlog.getLogger('Janus')
+
+colorout = colorlog.StreamHandler()
+colorout.setFormatter(colorlog.ColoredFormatter(
+    '%(log_color)s%(levelname)s:%(name)s:%(message)s'))
+colorout.setLevel(args.loglevel)
+logger.addHandler(colorout)
+
+fileout = logging.handlers.RotatingFileHandler('/tmp/janus.log', maxBytes=5*1024*1024, backupCount=5)
+fileout.setLevel(logging.DEBUG)
+logger.addHandler(fileout)
 
 def ask_iterator(ques, it):
     l = list(it)
@@ -142,9 +160,9 @@ class Janus:
     def command_set_source_fusiontable(self):
         'Set a fusion table as source for posts (replacing any previous source).'
         fusiontables = get_fusiontables()
-        logging.debug('Got ftables: %r', fusiontables)
+        logger.debug('Got ftables: %r', fusiontables)
         table = ask_iterator('Which table as source?', fusiontables)
-        logging.debug('Chose ftable: %s', table)
+        logger.debug('Chose ftable: %s', table)
         self.source = JanusFusiontablesSource(table, self.output)
         if self.filter is not None:
             self.source.set_filter(self.filter)
@@ -152,7 +170,7 @@ class Janus:
 
     def command_add_outsink(self, sinkname, *args):
         'Add a sink to send each post to. You may add several sinks'
-        logging.debug('command_add_outsink: sinkname=%r, *args=%r', sinkname, args)
+        logger.debug('command_add_outsink: sinkname=%r, *args=%r', sinkname, args)
         _sink = '_outsink__{}'.format(sinkname)
         if hasattr(self, _sink): 
             self.enabledsinks.append(getattr(self, _sink)(*args))
@@ -160,7 +178,6 @@ class Janus:
         else:
             puts(colored.red('No such sink found: {}. Use `all_sinks` to list available sinks'.format(sinkname)))
             return False
-
 
     def command_disable_outsink(self):
         'Get a list of enabled sinks and disable one of them'
@@ -170,24 +187,28 @@ class Janus:
 
     def command_list_outsinks(self):
         'List all possible outsinks'
-        logging.debug('self.outsinks: %r', self.outsinks)
+        logger.debug('self.outsinks: %r', self.outsinks)
         return '\n'.join( [ '{}\t:\t\t{}'.format(nm, getattr(self, '_outsink__'+nm).__doc__) for nm in self.outsinks ] )
 
     def command_list_enabled_outsinks(self):
         'List all enabled outsinks'
-        logging.debug('enabledsinks: %r', self.enabledsinks)
+        logger.debug('enabledsinks: %r', self.enabledsinks)
         return '\n'.join( [ '{}\t:\t\t{}'.format(sink, sink.__doc__) for sink in self.enabledsinks ] )
 
-    def command_pull_posts(self):
-        'Pull posts from current FB Page (cache or online), respecting Until and Since if they are set'
-        # cache receivers
-        i = 0
+    def _assert_sinks(self):
+        'Assert that we have sinks enabled, or display error message'
         if len(self.enabledsinks) == 0: # oh oh, no sinks set to receive
             puts(colored.red('No sinks enabled. Add one and try again.'))
             puts(colored.magenta(' ( use `all_sinks` to show all possible sinks ) '))
             return False
+
+    def command_pull_posts(self):
+        'Pull posts from current FB Page (cache or online), respecting Until and Since if they are set'
+        # cache receivers
+        self._assert_sinks() # make sure someone receives this
+        i = 0
         errors = []
-        for post in self.source: # iterate through feed
+        for post in self.source: # iterate through source, get JanusPost (or derivative)
             puts(colored.blue('Handling post # {} @ {}'.format(post.id, post.datetime_created.isoformat()), self.output))
             for sink in self.enabledsinks:
                 try:
@@ -202,7 +223,7 @@ class Janus:
             puts(colored.green('No errors. yay'))
         else:
             puts(colored.red('There were {} errors:'))
-            for (post, ex) in self.errors:
+            for (post, ex) in errors:
                 puts(colored.red('ID: {}, Date: {}, Author: {} -- {}'.format(post.id, post.datetime_created.isoformat(), post.name, str(ex))))
 
     def command_update_fusiontable(self):
@@ -234,7 +255,7 @@ class Janus:
         return s
 
     def count_cached_files(self):
-        logging.debug('count cache: %r', self.cachepath)
+        logger.debug('count cache: %r', self.cachepath)
         if self.cachepath is None:
             return -1
         try:
@@ -268,11 +289,11 @@ if __name__ == '__main__':
     #        j.command_set_page(args.fbpage)
     #    else:
     #        j.command_set_page_cached(args.fbpage)
-    logging.debug('sinks: %r', args.add_sink)
+    logger.debug('sinks: %r', args.add_sink)
     if args.add_sink is not None:
         for s in args.add_sink:
             _args = s[1:] if len(s) > 1 else []
-            logging.debug('adding sink: %r, args: %r', s[0], _args)
+            logger.debug('adding sink: %r, args: %r', s[0], _args)
             j.command_add_outsink(s[0], *_args)
     if args.since is not None:
         j.command_set_since(args.since)

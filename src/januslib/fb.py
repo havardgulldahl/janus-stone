@@ -1,6 +1,7 @@
 #-*- enc: utf-8
 
 import logging
+import colorlog
 import os
 import html
 from pathlib import Path
@@ -9,6 +10,8 @@ import requests
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 from clint.textui import colored, puts, indent
+
+logger = colorlog.getLogger('Janus.januslib.fb')
 
 from . import JanusSource, JanusPost, JanusException
 
