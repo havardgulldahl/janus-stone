@@ -207,9 +207,10 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
         if self.path.startswith('/?code='): # got token
             query = urllib.parse.parse_qs(self.path[2:])
         self.send_response(200)
-        self.send_header("Content-type", "text/plain")
+        self.send_header("Content-type", "text/html")
         self.end_headers()
-        self.wfile.write('Token{} OK'.format(' NOT' if not 'code' in query else '').encode())
+        #self.wfile.write('Token{} OK'.format(' NOT' if not 'code' in query else '').encode())
+        self.wfile.write('''<html><body onload="history.replaceState(null, '', '/')">Token{} OK</body></html>'''.format(' NOT' if not 'code' in query else '').encode())
         if 'code' in query:
             self.server.q.put(query['code'].pop())
 
