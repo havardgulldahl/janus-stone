@@ -70,7 +70,7 @@ argp.add_argument('--until', help='Date in YYYY-MM-DD [HH:MM:SS] format')
 
 args = argp.parse_args()
 
-logging.basicConfig(level=args.loglevel)
+logging.basicConfig()
 
 logger = logging.getLogger('Janus')
 
@@ -291,14 +291,21 @@ class Janus:
         thread, httpd = fb_run_oauth_endpoint(q)
         logger.debug('Authenticate fb command')
         fb_authenticate() 
-        code = q.get()
-        logger.info('Got token. length: %i', len(code))
-        httpd.shutdown()
-        logger.debug('Storing token in .env')
-        env = find_dotenv()
-        set_key(env, 'FB_APP_TOKEN', code)
-        logger.debug('Reload env')
-        load_dotenv(env)
+        try:
+            # watch queue and wait for an item
+            code = q.get()
+            logger.info('Got token. length: %i', len(code))
+            logger.debug('Storing token in .env')
+            env = find_dotenv()
+            set_key(env, 'FB_APP_TOKEN', code)
+            logger.debug('Reload env')
+            load_dotenv(env)
+
+        except KeyboardInterrupt:
+            #Ctrl-c
+            pass
+        finally:
+            httpd.shutdown()
 
 if __name__ == '__main__':
     import sys
