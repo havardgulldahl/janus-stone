@@ -285,8 +285,8 @@ class JanusFusiontablePost(JanusPost):
 
     @property
     def name(self):
-        return post['Avsender']
+        return self.post['Avsender']
 
     @property
     def media(self):
-        return post['Media']
+        return self.post['Media']
