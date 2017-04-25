@@ -70,7 +70,7 @@ argp.add_argument('--until', help='Date in YYYY-MM-DD [HH:MM:SS] format')
 
 args = argp.parse_args()
 
-logging.basicConfig()
+logging.basicConfig(level=args.loglevel)
 
 logger = logging.getLogger('Janus')
 
@@ -300,6 +300,7 @@ class Janus:
             set_key(env, 'FB_APP_TOKEN', code)
             logger.debug('Reload env')
             load_dotenv(env)
+
 
         except KeyboardInterrupt:
             #Ctrl-c

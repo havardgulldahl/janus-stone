@@ -24,9 +24,9 @@ class JanusFB(JanusSource):
 
     def __init__(self, facebookpage, output):
         super().__init__(output)
-        self.graph = facebook.GraphAPI(access_token=os.environ.get('FB_APP_TOKEN'), version='2.8')
         self.pagename = facebookpage
         self.id = facebookpage
+        self.graph = None
 
         # seed feed
         self.params = {'fields': 'from,id,message,created_time,status_type,comments{from,id,like_count,message,comments{from,like_count,created_time,message,comments{from,like_count,created_time,message}},created_time},likes{name},shares,type,source,picture,link,permalink_url'
@@ -37,10 +37,7 @@ class JanusFB(JanusSource):
         return '<<<FacebookPageONLINE({})'.format(self.pagename)
 
     def authenticate(self):
-        permissions = ['public_profile',]
-        canvas_url = ''
-        fb_login_url = self.graph.auth_url(os.environ.get('FB_APP_ID'), canvas_url, permissions)
-        puts(colored.blue('Go to the following url in a browser to complete login: {}'.format(fb_login_url), self.output))
+        self.graph = facebook.GraphAPI(access_token=os.environ.get('FB_APP_TOKEN'), version='2.8')
 
     def set_since(self, timestamp):
         self.params['since'] = timestamp
@@ -49,6 +46,8 @@ class JanusFB(JanusSource):
         self.params['until'] = timestamp
 
     def __iter__(self):
+        if self.graph is None:
+            self.authenticate()
         self.feed = self.graph.request('/{}/feed'.format(self.pagename), self.params)
         # Wrap this block in a while loop so we can keep paginating requests until
         # finished.
@@ -196,7 +195,7 @@ def getPost(postid):
 def fb_authenticate():
     permissions = ['public_profile',]
     canvas_url = 'http://gulldahlpc.local:8080/'
-    fb_login_url = facebook.auth_url(os.environ.get('FB_APP_ID'), canvas_url, permissions)
+    fb_login_url = facebook.auth_url(os.environ.get('FB_APP_ID'), canvas_url, permissions, response_type='token')
     puts(colored.blue('Go to the following url in a browser to complete login:\n{}'.format(fb_login_url)))
 
 class AuthHandler(http.server.BaseHTTPRequestHandler):
@@ -204,15 +203,16 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
         'Parse token from query'
         logger.debug('Got query: %r', self.path[:10] if len(self.path)>10 else self.path)
         query = {}
-        if self.path.startswith('/?code='): # got token
+        if self.path.startswith('/?token='): # got token
             query = urllib.parse.parse_qs(self.path[2:])
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.end_headers()
-        #self.wfile.write('Token{} OK'.format(' NOT' if not 'code' in query else '').encode())
-        self.wfile.write('''<html><body onload="history.replaceState(null, '', '/')">Token{} OK</body></html>'''.format(' NOT' if not 'code' in query else '').encode())
-        if 'code' in query:
-            self.server.q.put(query['code'].pop())
+        if not 'token' in query:
+            self.wfile.write('''<html><body onload="window.location.href='/?token='+window.location.hash.substring(14)">Token REDIRECT</body></html>'''.encode())
+        else:
+            self.wfile.write('''<html><body>Token captured. Please return to the Janus console</body></html>'''.encode())
+            self.server.q.put(query['token'].pop())
 
     def log_message(self, format, *args):
         return # dont log anything
