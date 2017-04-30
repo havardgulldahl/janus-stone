@@ -137,8 +137,8 @@ class Fusion:
         else:
             q = what
         sqlstring = "SELECT {} FROM {} ".format(q, tableid)
-        if where is not None:
-            sqlstring = sqlstring + " WHERE {}".format(where)
+        if isinstance(where, list) and len(where) > 0: # where is a list of conditionals
+            sqlstring = sqlstring + " WHERE {}".format(' AND '.join(where))
         logger.debug("generated SELECT sql: %r", sqlstring)
         req = self.service.query().sqlGet(sql=sqlstring)
         return self.run(req)

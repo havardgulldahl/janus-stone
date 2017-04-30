@@ -88,7 +88,11 @@ logger.addHandler(fileout)
 def ask_iterator(ques, it):
     l = list(it)
     for i in range(len(l)):
-        puts('[{}]:\t{}'.format(i, l[i]))
+        try:
+            name, desc = l[i] # try to unwrap tuple
+            puts('[{}]:\t{} -- {}'.format(i, name, desc))
+        except TypeError:
+            puts('[{}]:\t{}'.format(i, l[i]))
 
     puts('=======')
     puts(colored.green(ques))
@@ -128,13 +132,13 @@ class Janus:
         sys.ps1 = ps1
 
     def command_set_since(self, datetimestring):
-        'The datetime to start the Facebook Page retrieval at. Args: timestamp, format YYYY-MM-DD [HH:MM:SS]'
+        'The datetime to start the source retrieval at. Args: timestamp, format YYYY-MM-DD [HH:MM:SS]'
         self.since = datestring(datetimestring)
         if self.source is not None:
             self.source.set_since(self.since)
 
     def command_set_until(self, datetimestring):
-        'The datetime to end the Facebook Page retrieval at. Args: timestamp, format YYYY-MM-DD [HH:MM:SS]'
+        'The datetime to end the source retrieval at. Args: timestamp, format YYYY-MM-DD [HH:MM:SS]'
         self.until = datestring(datetimestring)
         if self.source is not None:
             self.source.set_until(self.until)
@@ -152,6 +156,8 @@ class Janus:
             self.source.set_since(self.since)
         if self.until is not None:
             self.source.set_until(self.until)
+        if self.filter is not None:
+            self.source.set_filter(self.filter)
         self.format_prompt()
 
     def command_set_page_cached(self, pagename, cachedir=None):
@@ -170,9 +176,13 @@ class Janus:
         self.source = JanusFusiontablesSource(table, self.output)
         if self.filter is not None:
             self.source.set_filter(self.filter)
+        if self.since is not None:
+            self.source.set_since(self.since)
+        if self.until is not None:
+            self.source.set_until(self.until)
         self.format_prompt()
 
-    def command_add_outsink(self, sinkname, *args):
+    def command_add_outsink_by_name(self, sinkname, *args):
         'Add a sink to send each post to. You may add several sinks'
         logger.debug('command_add_outsink: sinkname=%r, *args=%r', sinkname, args)
         _sink = '_outsink__{}'.format(sinkname)
@@ -189,10 +199,13 @@ class Janus:
         self.enabledsinks.remove(sink)
         self.format_prompt()
 
-    def command_list_outsinks(self):
+    def command_add_outsink(self, *args):
         'List all possible outsinks'
         logger.debug('self.outsinks: %r', self.outsinks)
-        return '\n'.join( [ '{}\t:\t\t{}'.format(nm, getattr(self, '_outsink__'+nm).__doc__) for nm in self.outsinks ] )
+        sinkname, desc = ask_iterator('Which sink will you add?', [ (nm, getattr(self, '_outsink__'+nm).__doc__) for nm in self.outsinks ])
+        _sink = '_outsink__{}'.format(sinkname)
+        self.enabledsinks.append(getattr(self, _sink)(*args))
+        self.format_prompt()
 
     def command_list_enabled_outsinks(self):
         'List all enabled outsinks'
@@ -335,7 +348,7 @@ if __name__ == '__main__':
     runner.command('set_filter', j.command_set_source_filter)
     runner.command('set_fusiontable', j.command_set_source_fusiontable)
     runner.command('add_sink', j.command_add_outsink)
-    runner.command('all_sinks', j.command_list_outsinks)
+    #'runner.command('all_sinks', j.command_list_outsinks)
     runner.command('enabled_sinks', j.command_list_enabled_outsinks)
     runner.command('disable_sink', j.command_disable_outsink)
     runner.command('pull', j.command_pull_posts)
