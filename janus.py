@@ -30,23 +30,25 @@ from januslib.stats import JanusStatsSink
 JANUS_CACHEDIR='./data'
 
 def datestring(string):
+    'Take a isoformatted string, Y-m-d or Y-m-d H:M:S, and return datetime.datetime'
     try:
         value = datetime.strptime(string, '%Y-%m-%d')
-        return value.timestamp()
+        return value
     except ValueError:
         try:
             value = datetime.strptime(string, '%Y-%m-%d %H:%M:%S')
-            return value.timestamp()
+            return value
         except ValueError:
             msg = "%r is not a YYYY-MM-DD [HH:MM:SS] timestamp" % string
             raise JanusException(msg)
 
 def unixtimetoiso8601(timestamp):
+    'Take a unix timestamp and return Y-m-d H:M:S'
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
-def fusionify_timestamp(datestring):
+def fusionify_timestamp(ts):
     '''2016-12-31T21:56:10+0000' -> 2016-12-31 21:56:10'''
-    yourdate = dateutil.parser.parse(datestring)
+    yourdate = dateutil.parser.parse(ts)
     return yourdate.strftime('%Y-%m-%d %H:%M:%S')
 
 def puts(s):
@@ -118,6 +120,7 @@ class Janus:
         self.cachepath = None # where to store cached posts
         self.filter = None # a filter for the source, see .set_filter()
         self.source = None
+        self.errors = []
 
     def format_prompt(self):
         ps1 = colored.magenta(self.source)
@@ -126,20 +129,21 @@ class Janus:
         ps1 += colored.green(', '.join(_sinks)) if _sinks else colored.red('No sinks set')
         ps1 += '] '
         if self.since or self.until:
-            ps1 += '|{}↦{}| '.format(unixtimetoiso8601(self.since) if self.since else '∞', unixtimetoiso8601(self.until) if self.until else '∞')
-        ps1 += colored.yellow('({} cached)'.format(self.count_cached_files()))
+            ps1 += '|{}↦{}| '.format(self.since.isoformat(' ') if self.since else '∞', self.until.isoformat(' ') if self.until else '∞')
+        ps1 += colored.yellow('({} cached) '.format(self.count_cached_files()))
+        ps1 += colored.red('*{} errors* '.format(len(self.errors)))
         ps1 += '\n > '
         sys.ps1 = ps1
 
     def command_set_since(self, datetimestring):
         'The datetime to start the source retrieval at. Args: timestamp, format YYYY-MM-DD [HH:MM:SS]'
-        self.since = datestring(datetimestring)
+        self.since = datestring(datetimestring) # get datetime.datetime
         if self.source is not None:
             self.source.set_since(self.since)
 
     def command_set_until(self, datetimestring):
         'The datetime to end the source retrieval at. Args: timestamp, format YYYY-MM-DD [HH:MM:SS]'
-        self.until = datestring(datetimestring)
+        self.until = datestring(datetimestring) # get datetime.datetime
         if self.source is not None:
             self.source.set_until(self.until)
 
@@ -224,7 +228,7 @@ class Janus:
         # cache receivers
         self._assert_sinks() # make sure someone receives this
         i = 0
-        errors = []
+        self.errors = []
         stop = False
         for post in self.source: # iterate through source, get JanusPost (or derivative)
             if stop == True: break
@@ -236,17 +240,13 @@ class Janus:
                     stop = True
                     break
                 except Exception as e:
-                    errors.append( (post, e) )
+                    self.errors.append( (post, e) )
             i = i+1
         for sink in self.enabledsinks:
             sink.finished() # let sinks clean up and empty their queues
         puts(colored.blue('Finished pulling {} posts from {}'.format(i, self.source), self.output))
-        if len(errors) == 0:
-            puts(colored.green('No errors. yay'))
-        else:
-            puts(colored.red('There were {} errors:'))
-            for (post, ex) in errors:
-                puts(colored.red('ID: {}, Date: {}, Author: {} -- {}'.format(post.id, post.datetime_created.isoformat(), post.name, str(ex))))
+        self.command_show_last_errors()
+        self.format_prompt()
 
     def command_update_fusiontable(self):
         'Run through all posts in current page disk cache, and update fusiontable with any posts that are missing'
@@ -297,6 +297,15 @@ class Janus:
         'Set up logging to file. Everything that goes to console also goes there'
         pass # TODO IMPLEMENT
 
+    def command_show_last_errors(self):
+        'Show the errors from the last operation'
+        if len(self.errors) == 0:
+            puts(colored.green('No errors. yay'))
+        else:
+            puts(colored.red('There were {} errors:'.format(len(self.errors))))
+            for (post, ex) in self.errors:
+                puts(colored.red('ID: {}, Date: {}, Author: {} -- {}'.format(post.id, post.datetime_created.isoformat(), post.name, str(ex))))
+
     def command_fb_authenticate(self):
         'Start procedure to authenticate to facebook.'
         logger.debug('Starting once off server to catch token')
@@ -343,12 +352,12 @@ if __name__ == '__main__':
     runner = console.CommandRunner()
     runner.command('set_page', j.command_set_page)
     runner.command('set_cached_page', j.command_set_page_cached)
+    runner.command('set_fusiontable', j.command_set_source_fusiontable)
     runner.command('set_since', j.command_set_since)
     runner.command('set_until', j.command_set_until)
     runner.command('set_filter', j.command_set_source_filter)
-    runner.command('set_fusiontable', j.command_set_source_fusiontable)
+    runner.command('show_errors', j.command_show_last_errors)
     runner.command('add_sink', j.command_add_outsink)
-    #'runner.command('all_sinks', j.command_list_outsinks)
     runner.command('enabled_sinks', j.command_list_enabled_outsinks)
     runner.command('disable_sink', j.command_disable_outsink)
     runner.command('pull', j.command_pull_posts)

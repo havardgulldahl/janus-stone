@@ -199,9 +199,9 @@ class JanusFusiontablesSource(JanusSource):
         colnames = [ c['name'] for c in self.table.metadata['columns'] ]
         where = [self.filter,] if self.filter is not None else []
         if self.since is not None: # its a datetime.datetime
-            where.append(""" 'Dato' >= {}""".format(self.since.strftime('%Y-%m-%d')))
+            where.append(""" 'Dato' >= '{}' """.format(self.since.strftime('%Y.%m.%d')))
         if self.until is not None: # its a datetime.datetime
-            where.append(""" 'Dato' <= {}""".format(self.until.strftime('%Y-%m-%d')))
+            where.append(""" 'Dato' <= '{}' """.format(self.until.strftime('%Y.%m.%d')))
             
         q = self.fusion.select(colnames, self.table.tableid, where=where)
         yield from [ JanusFusiontablePost(q['columns'], post) for post in q['rows'] ]

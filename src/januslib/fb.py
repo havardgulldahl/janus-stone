@@ -39,11 +39,11 @@ class JanusFB(JanusSource):
     def authenticate(self):
         self.graph = facebook.GraphAPI(access_token=os.environ.get('FB_APP_TOKEN'), version='2.8')
 
-    def set_since(self, timestamp):
-        self.params['since'] = timestamp
+    def set_since(self, timestamp): # timestamp is datetime.datetime
+        self.params['since'] = timestamp.value() # convert to unix timestamp
 
-    def set_until(self, timestamp):
-        self.params['until'] = timestamp
+    def set_until(self, timestamp): # timestamp is datetime.datetime
+        self.params['until'] = timestamp.value() # convert to unix timestamp
 
     def __iter__(self):
         if self.graph is None:
