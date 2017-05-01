@@ -116,6 +116,11 @@ class JanusFacebookPost(JanusPost):
         return dateutil.parser.parse(self.post['created_time'])
 
     @property
+    def date_created(self):
+        '''Return datetetime.date representing the post's `created_time` field'''
+        return dateutil.parser.parse(self.post['created_time']).date()
+
+    @property
     def like_count(self):
         return self.post['likes']['summary']['total_count'] if 'likes' in self.post else 0
 

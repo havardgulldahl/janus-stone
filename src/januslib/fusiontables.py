@@ -1,6 +1,7 @@
 import logging
 import colorlog
 import collections
+import datetime
 import time
 import fusionclient
 from . import JanusSink, JanusSource, JanusPost, JanusException
@@ -21,6 +22,7 @@ class JanusFusiontablesCoolDownException(JanusFusiontablesException):
 
 __all__ = ['JanusFusiontablesSink', 
            'JanusFusiontablesFacebookUpdateSink', 
+           'JanusFusiontablesUpdateSink', 
            'JanusFusiontablesSource', 
            'JanusFusiontablePost',
            'get_fusiontables',
@@ -166,12 +168,45 @@ class JanusFusiontablesFacebookUpdateSink(JanusFusiontablesSink):
             logger.exception(e)
             puts(colored.red(repr(e)))
             return
+        # <fbpost.attribute> => <fusiontable column name>
         _map = { 'share_count': 'Delinger', #TODO: Get rid of this
                  'comment_count': 'AntallKommentarer',
                  'like_count': 'Likes',
                  'permalink': 'Permalink',
+                 'date_created': 'Dato2',
                  }
         cols = [ " '{}'='{}' ".format(_map[col],getattr(fresh_fb, col)) for col in self.updateCols ]
+        q = "UPDATE {} SET {} WHERE ROWID='{}'".format(self.table.tableid, ','.join(cols), post.rowid)
+        logger.debug('about to UPDATE SQL rowid=%r: %r', post.rowid, q)
+        self.run(self.fusion.sql, q)
+        time.sleep(2.0)
+
+class JanusFusiontablesUpdateSink(JanusFusiontablesSink):
+    'Update an existing fusion table with calculated values from itself'
+
+    def __init__(self, table, columns, output):
+        super().__init__(table, output)
+        self.updateCols = [ x.strip() for x in columns.split(',')] # a comma separated list of rules to evaluate
+        logger.debug('CalculateSink. got rules: %s', self.updateCols)
+
+    def __str__(self):
+        'return pretty name'
+        n = str(self.table)
+        return '>>>FusiontablesUpdate({})'.format(self._slugify(n))
+
+    def push(self, post):
+        'Take a fusiontable post and SQL UPDATE the existing table with data calculated from each row'
+        # <fusiontablepost.attribute> => <fusiontable column name>
+        _map = { 'share_count': 'Delinger', #TODO: Get rid of this
+                 'date_created': 'Dato2',
+                }
+        cols = []
+        for rule in self.updateCols:
+            newcol, calc = rule.split('=') # e.g. Dato2=date_created
+            val = getattr(post, calc)
+            if isinstance(val, (datetime.datetime, datetime.date)):
+                val = val.isoformat()
+            cols.append(""" '{}'='{}' """.format(newcol, val))
         q = "UPDATE {} SET {} WHERE ROWID='{}'".format(self.table.tableid, ','.join(cols), post.rowid)
         logger.debug('about to UPDATE SQL rowid=%r: %r', post.rowid, q)
         self.run(self.fusion.sql, q)
@@ -244,6 +279,11 @@ class JanusFusiontablePost(JanusPost):
     def datetime_created(self):
         '''Return datetetime.datetime representing the post's `created_time` field'''
         return dateutil.parser.parse(self.post['Dato'])
+
+    @property
+    def date_created(self):
+        '''Return datetetime.date representing the post's `created_time` field'''
+        return self.datetime_created.date()
 
     @property
     def like_count(self):

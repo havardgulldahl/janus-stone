@@ -276,6 +276,14 @@ class Janus:
         self.format_prompt()
         return s
 
+    def _outsink__fusiontable_calculate(self, columns):
+        'Update each post in the current Fusiontable source with live data from Facebook. Args: colum rules - <Colname>=<field>'
+        if not isinstance(self.source, JanusFusiontablesSource):
+            raise JanusException('Need a Fusion Table as source for this sink')
+        s = JanusFusiontablesUpdateSink(self.source.table, columns, self.output)
+        self.format_prompt()
+        return s
+
     def count_cached_files(self):
         logger.debug('count cache: %r', self.cachepath)
         if self.cachepath is None:
@@ -358,6 +366,7 @@ if __name__ == '__main__':
     runner.command('set_filter', j.command_set_source_filter)
     runner.command('show_errors', j.command_show_last_errors)
     runner.command('add_sink', j.command_add_outsink)
+    runner.command('add_sink_by_name', j.command_add_outsink_by_name)
     runner.command('enabled_sinks', j.command_list_enabled_outsinks)
     runner.command('disable_sink', j.command_disable_outsink)
     runner.command('pull', j.command_pull_posts)
