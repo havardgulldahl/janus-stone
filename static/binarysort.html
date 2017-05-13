@@ -21,10 +21,24 @@ var error = function(error) {
 <style type="text/css">
     .disabled { color: #ccc; }
 
+    abbr { text-decoration: underline wavy; }
 
 </style>
   </head>
   <body onload=handleClientLoad()>
+
+    <dialog id="emptydialog" class="mdl-dialog">
+    <h3 class="mdl-dialog__title">Hurrah!</h3>
+    <div class="mdl-dialog__content">
+        <p>
+        No rows returned. You're finished!
+        </p>
+    </div>
+    <div class="mdl-dialog__actions">
+        <button type="button" class="mdl-button">Close</button>
+    </div>
+    </dialog>
+
     <div id="auth">
     <!--Add buttons to initiate auth sequence and sign out-->
     <button id="authorize-button" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent" >Authorize</button>
@@ -39,11 +53,13 @@ var error = function(error) {
     <div id="box" style="display:none; width: 1000px; height: 350px; border:3px double gray">
         <div class=post> 
             <dl v-bind:class="{ disabled: post.rowid == -1}">
-                <dt>Post</dt><dd>Den {{post.dato}} av <b>{{post.avsender}}</b> (+{{post.likes}}) <a v-bind:href=post.permalink>#</a></dd>
+                <dt>Post</dt><dd>Den {{post.dato}} av <b>{{post.avsender}}</b> <abbr title="Number of likes">(+{{post.likes}})</abbr></dd>
                 <dt>Tekst</dt><dd v-html=post.melding></dd>
-                <dt v-if=post.link>Lenke</dt><dd v-if=post.link><a v-bind:href=post.link target=_blank>{{post.link}}</a></dd>
-                <dt v-if=post.media>Bilde/Video</dt><dd v-if=post.media><img v-bind:src=post.media ></dd>
-                <dt>Kommentarer</dt><dd v-html=post.kommentarer></dd>
+                <dt>Permalenke til innlegg</dt><dd><a v-bind:href=post.permalink target=_blank>{{post.permalink}}</a></dd>
+                <dt v-if=post.link>Lenke i innlegg</dt><dd v-if=post.link><a v-bind:href=post.link target=_blank>{{post.link}}</a></dd>
+                <dt v-if=post.media>Bilde/Video i innlegg</dt><dd v-if=post.media><img v-bind:src=post.media ></dd>
+                <dt>Kommentarer <abbr title="Number of comments">(={{post.antallkommentarer}})</abbr></dt>
+                <dd v-html=post.kommentarer></dd>
                 <dt>Kategorisering</dt>
                 <dd>
                     <b>Kundeforhold?</b>
@@ -79,9 +95,10 @@ var error = function(error) {
         data: { post: {avsender:'Avsender', 
                        melding: 'test', 
                        kommentarer: '<ul><li>Ko</li></ul>',
+                       antallkommentarer: -1,
                        link: '',
                        media: '',
-                       likes: 0,
+                       likes: -1,
                        dato: 'xx. november',
                        kundeforhold: 0,
                        relevant: 0,
@@ -171,13 +188,29 @@ function answer (btnobj) {
 function getnext() {
     var val;
     var tbl = $('#sortTableList').val();
-    var s="SELECT ROWID,Melding,Kommentarer,Avsender,ID,'Relevant?',Link,Media,'Kundeforhold?',Delinger,Dato,Likes,Permalink FROM "+tbl+" WHERE 'Relevant?'='' AND 'Kundeforhold?'='' LIMIT 1;"
+    //var s="SELECT ROWID,Melding,Kommentarer,AntallKommentarer,Avsender,ID,'Relevant?',Link,Media,'Kundeforhold?',Delinger,Dato,Likes,Permalink FROM "+tbl+" WHERE 'Relevant?'='' AND 'Kundeforhold?'='' LIMIT 1;"
+    var s="SELECT ROWID,Melding,Kommentarer,AntallKommentarer,Avsender,ID,'Relevant?',Link,Media,'Kundeforhold?',Delinger,Dato,Likes,Permalink FROM "+tbl+" WHERE 'Relevant?'='' LIMIT 1;"
     if(gapi.client===undefined) return;
     $('[name=loading]').show();
     gapi.client.fusiontables.query.sqlGet({sql:s}).then( function(response) {
         console.log('getnxet: %o', response);
         var obj = new Object();
         var cols = response.result.columns;
+        if(response.result.rows === undefined) { 
+            console.info('empty response, no rows left to sort!');
+            $('[name=loading]').hide();
+            obj["rowid"] = -1;
+            setpost(obj);
+            var dialog = document.querySelector('#emptydialog');
+            dialog.querySelector('button:not([disabled])')
+                .addEventListener('click', function() {
+                    dialog.close();
+                });
+            dialog.showModal();
+
+            return;
+        }
+            
         for(var i = 0; i<cols.length; i++) {
             var colname = cols[i].toLocaleLowerCase();
             if(colname.slice(-1) == '?') {
