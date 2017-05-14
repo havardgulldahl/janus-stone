@@ -46,7 +46,8 @@ var error = function(error) {
     </div>
     <div id="sortSelection">
         <label>Choose table <select id=sortTableList></select></label>
-        <button id=sortNext class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent">Get cracking :D</button>
+        <span id=sortColumnList></span>
+        <button disabled=disabled id=sortNext class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent">Get cracking :D</button>
         <img src=ring.gif name=loading style="width: 20px; height: 20px; display: none">
     </div>
     
@@ -103,7 +104,8 @@ var error = function(error) {
                        kundeforhold: 0,
                        relevant: 0,
                        permalink: '',
-                       rowid:-1 } 
+                       rowid:-1 },
+                 sortcolumns: [] // an array of objects, see https://jsfiddle.net/xb5h545w/1/
         },
         methods: {
             // computed getters to streamline properties
@@ -143,21 +145,27 @@ var authorizeButton = $('#authorize-button');
 var contentBox = $('#box');
 var sortSelectionBox = $('#sortSelection');
 
-$('#xxxxsortTableList').change(function(ev, data) {
-    $('[name=loading]').show();
-    gapi.client.fusiontables.column.list({tableId: this.value}).then(function(response) {
-        var collst = $('#sortColumnList');
-        collst.empty();
-        console.log('sortablelistchange list data %o', response.result);
-        for(var idx=0; idx<response.result.items.length; idx++) {
-            var el = response.result.items[idx];
-            if(el.type === 'NUMBER' && el.name.slice(-1) == '?') { 
-                collst.append( $('<option/>').val(el.name).data("tableId", this.value).html(el.name) );
-            }
-        }
-        $('[name=loading]').hide();
+$('#sortTableList').change(function(ev, data) {
+    var collst = $('#sortColumnList');
+    collst.empty();
+    console.log('sorttable list change: %o', this.value);
+    var struct = $(this.selectedOptions[0]).data('struct');
+    var binarycols = struct.columns.filter(isBinarysortColumn);
+    var col, chck;
+    collst.append('Choose columns to sort:');
+    for(var i=0; i<binarycols.length; i++) {
+        col = binarycols[i];
+        chck = $('<input type=checkbox>').val(col.name);
+        collst.append(chck);
+        chck.after(col.name);
+        chck.on('change', function() {
+            //console.log('chckbox change %o', this)
+            // enable start button if one or more columns are checked
+            document.querySelector('#sortNext').disabled = $('input:checked', collst).length == 0;
+        });
+                
+    }
 
-    });
 });
 
 function mdlRadioChecked(id) {
@@ -188,8 +196,13 @@ function answer (btnobj) {
 function getnext() {
     var val;
     var tbl = $('#sortTableList').val();
+    var cols = $('#sortColumnList input:checked').map(function() { return this.value; }).get();
+    //console.log('looking for columns: %o', cols);
+    var sqlcols = cols.map(function(el) { return "'"+el+"'=''"; }).join(' AND ');
+    //console.log('looking for sql columns: %o', sqlcols);
     //var s="SELECT ROWID,Melding,Kommentarer,AntallKommentarer,Avsender,ID,'Relevant?',Link,Media,'Kundeforhold?',Delinger,Dato,Likes,Permalink FROM "+tbl+" WHERE 'Relevant?'='' AND 'Kundeforhold?'='' LIMIT 1;"
-    var s="SELECT ROWID,Melding,Kommentarer,AntallKommentarer,Avsender,ID,'Relevant?',Link,Media,'Kundeforhold?',Delinger,Dato,Likes,Permalink FROM "+tbl+" WHERE 'Relevant?'='' LIMIT 1;"
+    var s="SELECT ROWID,Melding,Kommentarer,AntallKommentarer,Avsender,ID,'Relevant?',Link,Media,'Kundeforhold?',Delinger,Dato,Likes,Permalink FROM "+tbl+" WHERE "+sqlcols+" LIMIT 1;"
+    console.log('running SQL: %o', s);
     if(gapi.client===undefined) return;
     $('[name=loading]').show();
     gapi.client.fusiontables.query.sqlGet({sql:s}).then( function(response) {
@@ -239,18 +252,27 @@ $('#sortNext').click(getnext);
     gapi.load('client:auth2', initClient);
   }
 
+  function isBinarysortColumn(col) {
+    // return true if the column is set up for  binary classification [0,1]
+    try {
+        return (col.type=="NUMBER" && col.columnPropertiesJson !== undefined && JSON.parse(col.columnPropertiesJson).binarysort === true);
+    } catch(e) {console.log(e)}
+    return false;
+  }
+
   function hasBinarysortColumn(tablestruct) {
     // return true if the struct contains one or more columns for binary classification [0,1]
     var col;
     for(var i=0; i<tablestruct.columns.length; i++) {
         col = tablestruct.columns[i];
-        try {
-            if(col.type=="NUMBER" && col.columnPropertiesJson !== undefined && JSON.parse(col.columnPropertiesJson).binarysort === true) {
-                return true;
-            }
-        } catch(e) {console.log(e)}
+        if(isBinarysortColumn(col)) { return true; }
     }
     return false;
+  }
+
+  function getBinarysortColumns(tablestruct) { 
+    // loop through struct and get a list of all columns for binary classification [0,1]
+    return tablestruct.columns.filter(isBinarysortColumn);
   }
 
  function updateSigninStatus(isSignedIn) {
@@ -268,7 +290,7 @@ $('#sortNext').click(getnext);
         for(var idx=0; idx<response.result.items.length; idx++) {
             var el = response.result.items[idx];
             if(hasBinarysortColumn(el)) {
-                l.append($('<option/>').val(el.tableId).html(el.name));
+                l.append($('<option/>').val(el.tableId).data('struct', el).html(el.name));
             }
         }
 
